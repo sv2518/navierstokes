@@ -5,7 +5,7 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
     Sigma = FunctionSpace(mesh, "RT", 1)
     V = FunctionSpace(mesh, "DG", 0)
-    W = Sigma * 
+    W = Sigma * V
     sigma, u = TrialFunctions(W)
     tau, v = TestFunctions(W)
     f = Function(V)
@@ -30,12 +30,12 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
     solver = LinearSolver(A, P=P, solver_parameters=parameters)
     w = Function(W)
     b = assemble(L)
-    parameters = {
-    "ksp_type": "gmres",
-    "ksp_gmres_restart": 100,"ksp_rtol": 1e-8,"pc_type": "ilu",
-    }
-    print("Naive preconditioning")
-    for n in range(8):
-        solver, w, b = build_problem(n, parameters, block_matrix=False)
-        solver.solve(w, b)
+
+    return solver, w, b
+parameters = {"ksp_type": "gmres","ksp_gmres_restart": 100,"ksp_rtol": 1e-8,"pc_type": "ilu"}
+print("Naive preconditioning")
+print("Cell number","IterationNumber")
+for n in range(8):
+    solver, w, b = build_problem(n, parameters, block_matrix=False)
+    solver.solve(w, b)
     print(w.function_space().mesh().num_cells(), solver.ksp.getIterationNumber())
