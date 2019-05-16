@@ -3,7 +3,11 @@ import numpy as np
 
 
 def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
+    #generate and plot mesh
     mesh = UnitSquareMesh(2 ** mesh_size, 2 ** mesh_size)
+    plot(mesh)
+    import matplotlib.pyplot as plt
+    plt.show()
 
     #function spaces
     U = FunctionSpace(mesh, "RT",1)
@@ -20,43 +24,41 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #laplacian
     n=FacetNormal(W.mesh())
-    nue=1.0
+    nue=1.0#viscosity
     h=CellSize(W.mesh())
     h_avg=(h('+')+h('-'))/2
-    alpha=Constant(5)
-    gamma=Constant(5) 
+    alpha=Constant(10.)
+    gamma=Constant(10.) 
     kappa1=alpha/h_avg
     kappa2=gamma/h
     a_dg=nue*inner(grad(u),grad(v))*dx \
-         -inner(nue*grad(v),outer(u,n))*ds \
+         -inner(outer(u,n),nue*grad(v))*ds \
          -inner(outer(v,n),nue*grad(u))*ds \
 	 +kappa2*inner(v,u)*ds \
-         -inner(avg(nue*grad(v)),jump(outer(u,n)))*dS \
+         -inner(nue*avg(grad(v)),jump(outer(u,n)))*dS \
          -inner(jump(outer(v,n)),nue*avg(grad(u)))*dS \
 	 +kappa1*inner(jump(outer(u,n)),jump(outer(v,n)))*dS 
 
-    #linear forms
+    #forms
     a = a_dg-div(v)*p*dx+div(u)*q*dx
     L = dot(f,v)*dx
 
     #preconditioning
     if aP is not None:
         aP = aP(W)
-    
-    #assembling
     if block_matrix:
         mat_type = 'nest'
     else:
         mat_type = 'aij'
 
-    #boundary conditions
+    #boundary conditions on A
     bc_1=[]
+    bc1=DirichletBC(W.sub(0),Constant((1.0,0.0)),1)#plane x=0
+    bc_1.append(bc1)
     bc2=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
     bc_1.append(bc2)
     bc3=DirichletBC(W.sub(0),Constant((0.0,0.0)),4)#plane y=L
     bc_1.append(bc3)
-    bc1=DirichletBC(W.sub(0),Constant((1.0,0.0)),1)#plane x=0
-    bc_1.append(bc1)
 
     #assembling for solving with linear solver
     A = assemble(a, mat_type=mat_type,bcs=bc_1)
@@ -67,6 +69,15 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
     solver = LinearSolver(A, P=P, solver_parameters=parameters)
     w = Function(W)
     b = assemble(L)
+
+    #boundary conditions on b
+    bc1.apply(b)
+    bc2.apply(b)
+    bc3.apply(b)
+
+    #check the mesh ordering
+    print(mesh.coordinates.dat.data[:,1])
+    print(mesh.coordinates.dat.data[:,0])
     
     return solver, w,b,a,L,bc_1
 
@@ -86,6 +97,11 @@ for n in range(6):
     solver.solve(w, b)
     print(w.function_space().mesh().num_cells(), solver.ksp.getIterationNumber())
     u,p=w.split()
+    print(u.at([0,0]))
+    print(u.at([1,0]))
+    print(u.at([1,1]))
+    print(u.at([0,1]))
+
     
     #plot solutions
     File("poisson_mixed_velocity.pvd").write(u)
@@ -95,6 +111,11 @@ for n in range(6):
     except:
         warning("Matplotlib not imported")
 
+    #print
+    print(assemble(u).dat.data)
+
+
+    #plot solutions
     try:
         plot(u)
         plt.title("Velocity")
