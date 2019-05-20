@@ -24,26 +24,26 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #laplacian
     n=FacetNormal(W.mesh())
-    nue=1.0#viscosity
+    nue=0.1#viscosity
     h=CellSize(W.mesh())
     h_avg=(h('+')+h('-'))/2
-    alpha=Constant(10.)
-    gamma=Constant(10.) 
+    alpha=Constant(0.5)
+    gamma=Constant(1.0) 
     kappa1=alpha/h_avg
     kappa2=gamma/h
     a_dg=nue*inner(grad(u),grad(v))*dx \
-         -inner(outer(u,n),nue*grad(v))*ds \
          -inner(outer(v,n),nue*grad(u))*ds \
+         -inner(outer(u,n),nue*grad(v))*ds \
 	 +kappa2*inner(v,u)*ds \
          -inner(nue*avg(grad(v)),jump(outer(u,n)))*dS \
          -inner(jump(outer(v,n)),nue*avg(grad(u)))*dS \
-	 +kappa1*inner(jump(outer(u,n)),jump(outer(v,n)))*dS 
+	 +kappa1*inner(jump(outer(u,n)),jump(outer(v,n)))*dS\
 
     #forms
     a = a_dg-div(v)*p*dx+div(u)*q*dx
     L = dot(f,v)*dx
 
-    #preconditioning
+    #preconditioning(not used here)
     if aP is not None:
         aP = aP(W)
     if block_matrix:
@@ -53,7 +53,7 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
     #boundary conditions on A
     bc_1=[]
-    bc1=DirichletBC(W.sub(0),Constant((1.0,0.0)),1)#plane x=0
+    bc1=DirichletBC(W.sub(0),Constant((1.0/(2**mesh_size),0.0)),1)#plane x=0
     bc_1.append(bc1)
     bc2=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
     bc_1.append(bc2)
@@ -82,36 +82,32 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
     return solver, w,b,a,L,bc_1
 
 
+#
 parameters={
     "ksp_type":"gmres",
     "ksp_gmres_restart":100,
-    "ksp_rtol":1e-8,
+    "ksp_rtol":1e-12,
     "pc_type":"ilu"}
-
 print("Channel Flow")
 print("Cell number","IterationNumber")
 
-for n in range(6):
+for n in range(1,6):
     #solve with linear solve
     solver, w,b,a,L,bc= build_problem(n, parameters,aP=None, block_matrix=False)
     solver.solve(w, b)
     print(w.function_space().mesh().num_cells(), solver.ksp.getIterationNumber())
     u,p=w.split()
-    print(u.at([0,0]))
-    print(u.at([1,0]))
-    print(u.at([1,1]))
-    print(u.at([0,1]))
 
     
     #plot solutions
-    File("poisson_mixed_velocity.pvd").write(u)
-    File("poisson_mixed_pressure.pvd").write(p)
+    File("poisson_mixed_velocity_.pvd").write(u)
+    File("poisson_mixed_pressure_.pvd").write(p)
     try:
         import matplotlib.pyplot as plt
     except:
         warning("Matplotlib not imported")
 
-    #print
+    #print the velocity solutions vector
     print(assemble(u).dat.data)
 
 
