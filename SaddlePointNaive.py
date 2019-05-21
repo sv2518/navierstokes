@@ -31,15 +31,17 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
     h=CellSize(W.mesh())
     h_avg=(h('+')+h('-'))/2
     alpha=Constant(10.)
-    gamma=Constant(1.0) 
+    gamma=Constant(10.0) 
     kappa1=nue * alpha*4.
-    kappa2=nue * gamma/h
-    a_dg=(nue*inner(grad(u),grad(v))*dx
-           #-inner(outer(v,n),nue*grad(u))*ds 
-           #-inner(outer(u,n),nue*grad(v))*ds 
-           #+kappa2*inner(v,u)*ds 
-           -inner(nue*avg(grad(v)),both(outer(u,n)))*dS
-           -inner(both(outer(v,n)),nue*avg(grad(u)))*dS
+    kappa2=nue * gamma*4
+    #excluding exterior facets stuff: slip-BC
+    g=Constant((0.0,0.0))
+    a_dg=(nue*inner(grad(u-g),grad(v))*dx
+           -inner(outer(v,n),nue*grad(u-g))*ds 
+           -inner(outer(u,n),nue*grad(v-g))*ds 
+           +kappa2*inner(v,u)*ds 
+           -inner(nue*avg(grad(v-g)),both(outer(u,n)))*dS
+           -inner(both(outer(v,n)),nue*avg(grad(u-g)))*dS
            +kappa1*inner(both(outer(u,n)),both(outer(v,n)))*dS)
  
     #forms
@@ -55,8 +57,11 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
         mat_type = 'aij'
 
     #boundary conditions on A
+    x,y=SpatialCoordinate(mesh)
+    inflow=Function(U).project(as_vector(((y-0.5)**2,0.0*y)))
+    inflow_uniform=Constant((1.0,0.0))    
     bc_1=[]
-    bc1=DirichletBC(W.sub(0),Constant((1.0,0.0)),1)#plane x=0
+    bc1=DirichletBC(W.sub(0),inflow,1)#plane x=0
     bc_1.append(bc1)
     bc2=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
     bc_1.append(bc2)
@@ -66,23 +71,9 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
     w = Function(W)
     problem = LinearVariationalProblem(a, L, w, bc_1)
     solver = LinearVariationalSolver(problem, solver_parameters=parameters)
-    
-    # #assembling for solving with linear solver
-    # A = assemble(a, mat_type=mat_type,bcs=bc_1)
-    # if aP is not None:
-    #     P = assemble(aP, mat_type=mat_type)
-    # else:
-    #     P = None
-    # solver = LinearSolver(A, P=P, solver_parameters=parameters)
-    # w = Function(W)
-    # b = assemble(L)
+   
 
-    # #boundary conditions on b
-    # bc1.apply(b)
-    # bc2.apply(b)
-    # bc3.apply(b)
-
-    # #check the mesh ordering
+    # check the mesh ordering
     # print(mesh.coordinates.dat.data[:,1])
     # print(mesh.coordinates.dat.data[:,0])
     
@@ -101,7 +92,7 @@ parameters={
 print("Channel Flow")
 print("Cell number","IterationNumber")
 
-for n in range(2,3):
+for n in range(4,6):
     #solve with linear solve
     solver, w, a, L, bc = build_problem(n, parameters,aP=None, block_matrix=False)
     solver.solve()
