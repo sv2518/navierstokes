@@ -27,7 +27,7 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #laplacian
     n=FacetNormal(W.mesh())
-    nue=0.1#viscosity
+    nue=1.0#viscosity
     h=CellSize(W.mesh())
     h_avg=(h('+')+h('-'))/2
     alpha=Constant(10.)
@@ -36,17 +36,20 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
     kappa2=nue * gamma*4
     #excluding exterior facets stuff: slip-BC
     g=Constant((0.0,0.0))
-    a_dg=(nue*inner(grad(u-g),grad(v))*dx
-           -inner(outer(v,n),nue*grad(u-g))*ds 
-           -inner(outer(u,n),nue*grad(v-g))*ds 
-           +kappa2*inner(v,u)*ds 
-           -inner(nue*avg(grad(v-g)),both(outer(u,n)))*dS
-           -inner(both(outer(v,n)),nue*avg(grad(u-g)))*dS
+    a_dg=(nue*inner(grad(u),grad(v))*dx
+           -inner(outer(v-g,n),nue*grad(u-g))*ds 
+           -inner(outer(u-g,n),nue*grad(v-g))*ds 
+           +kappa2*inner(v-g,u-g)*ds 
+           -inner(nue*avg(grad(v)),both(outer(u,n)))*dS
+           -inner(both(outer(v,n)),nue*avg(grad(u)))*dS
            +kappa1*inner(both(outer(u,n)),both(outer(v,n)))*dS)
  
     #forms
-    a = a_dg-div(v)*p*dx+div(u)*q*dx
-    L = dot(Constant((0.0, 0.0)),v)*dx
+    eq = a_dg-div(v)*p*dx+div(u)*q*dx
+    eq -= dot(Constant((0.0, 0.0)),v)*dx
+
+    a=lhs(eq)
+    L=rhs(eq)
 
     #preconditioning(not used here)
     if aP is not None:
@@ -59,8 +62,9 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #boundary conditions on A
     x,y=SpatialCoordinate(mesh)
     inflow=Function(U).project(as_vector(((y-0.5)**2,0.0*y)))
+    inflow_uniform=Function(U).project(Constant((1.0,0.0)))
     bc_1=[]
-    bc1=DirichletBC(W.sub(0),inflow,1)#plane x=0
+    bc1=DirichletBC(W.sub(0),inflow_uniform,1)#plane x=0
     bc_1.append(bc1)
     bc2=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
     bc_1.append(bc2)
