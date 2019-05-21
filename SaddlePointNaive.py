@@ -59,7 +59,6 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #boundary conditions on A
     x,y=SpatialCoordinate(mesh)
     inflow=Function(U).project(as_vector(((y-0.5)**2,0.0*y)))
-    inflow_uniform=Constant((1.0,0.0))    
     bc_1=[]
     bc1=DirichletBC(W.sub(0),inflow,1)#plane x=0
     bc_1.append(bc1)
