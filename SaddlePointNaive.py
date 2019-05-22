@@ -29,7 +29,7 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
     n=FacetNormal(W.mesh())
     nue=1.0#viscosity
     h=CellSize(W.mesh())
-    h_avg=(h('+')+h('-'))/2
+    h_avg=(h('+')+h('-'))
     alpha=Constant(10.)
     gamma=Constant(10.0) 
     kappa1=nue * alpha*4.
@@ -47,7 +47,6 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #forms
     eq = a_dg-div(v)*p*dx+div(u)*q*dx
     eq -= dot(Constant((0.0, 0.0)),v)*dx
-
     a=lhs(eq)
     L=rhs(eq)
 
@@ -77,7 +76,7 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
    
 
     # check the mesh ordering
-    # print(mesh.coordinates.dat.data[:,1])
+    # print(mesh.coordinates.dat.data[:,1])        
     # print(mesh.coordinates.dat.data[:,0])
     
     return solver, w, a, L, bc_1
