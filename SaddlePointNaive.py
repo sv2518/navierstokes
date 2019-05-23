@@ -33,7 +33,7 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
     alpha=Constant(10.)
     gamma=Constant(10.0) 
     kappa1=nue * alpha*4.
-    kappa2=nue * gamma*4
+    kappa2=nue * gamma*4.
     #excluding exterior facets stuff: slip-BC
     g=Constant((0.0,0.0))
     a_dg=(nue*inner(grad(u),grad(v))*dx
@@ -60,10 +60,10 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
     #boundary conditions on A
     x,y=SpatialCoordinate(mesh)
-    inflow=Function(U).project(as_vector((((y-0.5)**2),0.0*y)))
+    inflow=Function(U).project(as_vector(((-10*(y-1)*y),0.0*y)))
     inflow_uniform=Function(U).project(Constant((1.0,0.0)))
     bc_1=[]
-    bc1=DirichletBC(W.sub(0),inflow_uniform,1)#plane x=0
+    bc1=DirichletBC(W.sub(0),inflow,1)#plane x=0
     bc_1.append(bc1)
     bc2=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
     bc_1.append(bc2)
