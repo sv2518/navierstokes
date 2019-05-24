@@ -29,17 +29,17 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
     n=FacetNormal(W.mesh())
     nue=1.0#viscosity
     h=CellSize(W.mesh())
-    h_avg=(h('+')+h('-'))
+    h_avg=(h('+')+h('-'))/2
     alpha=Constant(10.)
-    gamma=Constant(10.0) 
-    kappa1=nue * alpha*4.
-    kappa2=nue * gamma*4.
+    gamma=Constant(5.) 
+    kappa1=nue * alpha*4.#h_avg
+    kappa2=nue * gamma*4.#h
     #excluding exterior facets stuff: slip-BC
     g=Constant((0.0,0.0))
     a_dg=(nue*inner(grad(u),grad(v))*dx
-           -inner(outer(v-g,n),nue*grad(u-g))*ds 
-           -inner(outer(u-g,n),nue*grad(v-g))*ds 
-           +kappa2*inner(v-g,u-g)*ds 
+           -inner(outer(v,n),nue*grad(u))*ds 
+           -inner(outer(u,n),nue*grad(v))*ds 
+           +kappa2*inner(v,u)*ds 
            -inner(nue*avg(grad(v)),both(outer(u,n)))*dS
            -inner(both(outer(v,n)),nue*avg(grad(u)))*dS
            +kappa1*inner(both(outer(u,n)),both(outer(v,n)))*dS)
@@ -94,7 +94,7 @@ parameters={
 print("Channel Flow")
 print("Cell number","IterationNumber")
 
-for n in range(4,6):
+for n in range(4,5):
     #solve with linear solve
     solver, w, a, L, bc = build_problem(n, parameters,aP=None, block_matrix=False)
     solver.solve()
