@@ -7,7 +7,7 @@ def both(expr):
 
 def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #generate and plot mesh
-    mesh = UnitSquareMesh(2 ** mesh_size, 2 ** mesh_size)
+    mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=100,Ly=1)
     #plot(mesh)
     import matplotlib.pyplot as plt
     plt.show()
@@ -30,10 +30,10 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
     nue=1.0#viscosity
     h=CellSize(W.mesh())
     h_avg=(h('+')+h('-'))/2
-    alpha=Constant(10.)
-    gamma=Constant(5.) 
-    kappa1=nue * alpha*4.#h_avg
-    kappa2=nue * gamma*4.#h
+    alpha=Constant(15.)
+    gamma=Constant(15.) 
+    kappa1=nue * alpha/(h_avg/FacetArea(W.mesh()))
+    kappa2=nue * gamma/(h/FacetArea(W.mesh()))
     #excluding exterior facets stuff: slip-BC
     g=Constant((0.0,0.0))
     a_dg=(nue*inner(grad(u),grad(v))*dx
@@ -60,7 +60,7 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
     #boundary conditions on A
     x,y=SpatialCoordinate(mesh)
-    inflow=Function(U).project(as_vector(((-10*(y-1)*y),0.0*y)))
+    inflow=Function(U).project(as_vector(((-0.5*(y-1)*y),0.0*y)))
     inflow_uniform=Function(U).project(Constant((1.0,0.0)))
     bc_1=[]
     bc1=DirichletBC(W.sub(0),inflow,1)#plane x=0
@@ -94,7 +94,7 @@ parameters={
 print("Channel Flow")
 print("Cell number","IterationNumber")
 
-for n in range(4,5):
+for n in range(4,10):
     #solve with linear solve
     solver, w, a, L, bc = build_problem(n, parameters,aP=None, block_matrix=False)
     solver.solve()
