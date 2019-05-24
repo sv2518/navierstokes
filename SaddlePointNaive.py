@@ -7,13 +7,13 @@ def both(expr):
 
 def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #generate and plot mesh
-    mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=100,Ly=1)
+    mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=100,Ly=1,quadrilateral=True)
     #plot(mesh)
     import matplotlib.pyplot as plt
     plt.show()
 
     #function spaces
-    U = FunctionSpace(mesh, "RT",1)
+    U = FunctionSpace(mesh, "RTCF",1)
     P = FunctionSpace(mesh, "DG", 0)
     W = U*P
 
@@ -28,12 +28,10 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #laplacian
     n=FacetNormal(W.mesh())
     nue=1.0#viscosity
-    h=CellSize(W.mesh())
-    h_avg=(h('+')+h('-'))/2
-    alpha=Constant(15.)
-    gamma=Constant(15.) 
-    kappa1=nue * alpha/(h_avg/FacetArea(W.mesh()))
-    kappa2=nue * gamma/(h/FacetArea(W.mesh()))
+    alpha=Constant(20.)
+    gamma=Constant(7.) 
+    kappa1=nue * alpha/Constant(mesh_size)
+    kappa2=nue * gamma/Constant(mesh_size)
     #excluding exterior facets stuff: slip-BC
     g=Constant((0.0,0.0))
     a_dg=(nue*inner(grad(u),grad(v))*dx
@@ -60,7 +58,7 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
     #boundary conditions on A
     x,y=SpatialCoordinate(mesh)
-    inflow=Function(U).project(as_vector(((-0.5*(y-1)*y),0.0*y)))
+    inflow=Function(U).project(as_vector(((-(y-1)*y),0.0*y)))
     inflow_uniform=Function(U).project(Constant((1.0,0.0)))
     bc_1=[]
     bc1=DirichletBC(W.sub(0),inflow,1)#plane x=0
