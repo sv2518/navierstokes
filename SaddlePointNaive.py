@@ -27,9 +27,9 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #laplacian
     n=FacetNormal(W.mesh())
-    nue=1.0#viscosity
-    alpha=Constant(20.)
-    gamma=Constant(7.) 
+    nue=Constant(0.001)#viscosity
+    alpha=Constant(10.)
+    gamma=Constant(10.) 
     kappa1=nue * alpha/Constant(mesh_size)
     kappa2=nue * gamma/Constant(mesh_size)
     #excluding exterior facets stuff: slip-BC
@@ -42,8 +42,17 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
            -inner(both(outer(v,n)),nue*avg(grad(u)))*dS
            +kappa1*inner(both(outer(u,n)),both(outer(v,n)))*dS)
  
-    #forms
-    eq = a_dg-div(v)*p*dx+div(u)*q*dx
+    x,y=SpatialCoordinate(mesh)
+    inflow=Function(U).project(as_vector((-1*(y-1)*(y),0.0*y)))
+    inflow_uniform=Function(U).project(Constant((1.0,0.0)))  
+    uhat=u #?
+    adv_dg=(dot(-u,div(outer(v,Constant(-1)*inflow)))*dx+
+    dot(dot(avg(Constant(-1)*inflow),both(outer(n,u))),avg(v))*dS+
+    dot(dot(Constant(-1)*inflow,(outer(n,u))),v)*ds)
+ 
+    #form
+    #attention: advection pronounced by factor!!!!!!
+    eq = a_dg+Constant(1)*adv_dg-div(v)*p*dx+div(u)*q*dx
     eq -= dot(Constant((0.0, 0.0)),v)*dx
     a=lhs(eq)
     L=rhs(eq)
@@ -56,10 +65,7 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
     else:
         mat_type = 'aij'
 
-    #boundary conditions on A
-    x,y=SpatialCoordinate(mesh)
-    inflow=Function(U).project(as_vector(((-(y-1)*y),0.0*y)))
-    inflow_uniform=Function(U).project(Constant((1.0,0.0)))
+    #boundary conditions on As
     bc_1=[]
     bc1=DirichletBC(W.sub(0),inflow,1)#plane x=0
     bc_1.append(bc1)
