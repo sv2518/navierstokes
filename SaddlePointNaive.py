@@ -27,13 +27,14 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #laplacian
     n=FacetNormal(W.mesh())
-    nue=Constant(0.001)#viscosity
+    nue=Constant(0.01)#viscosity
     alpha=Constant(10.)
     gamma=Constant(10.) 
     kappa1=nue * alpha/Constant(mesh_size)
     kappa2=nue * gamma/Constant(mesh_size)
     #excluding exterior facets stuff: slip-BC
     g=Constant((0.0,0.0))
+
     a_dg=(nue*inner(grad(u),grad(v))*dx
            -inner(outer(v,n),nue*grad(u))*ds 
            -inner(outer(u,n),nue*grad(v))*ds 
@@ -45,14 +46,18 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
     x,y=SpatialCoordinate(mesh)
     inflow=Function(U).project(as_vector((-1*(y-1)*(y),0.0*y)))
     inflow_uniform=Function(U).project(Constant((1.0,0.0)))  
-    uhat=u #?
-    adv_dg=(dot(-u,div(outer(v,Constant(-1)*inflow)))*dx+
-    dot(dot(avg(Constant(-1)*inflow),both(outer(n,u))),avg(v))*dS+
-    dot(dot(Constant(-1)*inflow,(outer(n,u))),v)*ds)
+
+    un = 0.5*(dot(inflow, n) + abs(dot(inflow, n)))
+    adv_dg=(dot(u,div(outer(v,inflow)))*dx#like paper
+          -inner(v,u*un)*ds#like matt piggots
+          -dot((v('+')-v('-')),(un('+')*u('+') - un('-')*u('-')))*dS)#like in the tutorial
+   # adv_dg=(dot(-u,div(outer(v,Constant(-1)*inflow)))*dx+
+   # dot(dot(avg(Constant(-1)*inflow),both(outer(n,u))),avg(v))*dS+
+   # dot(dot(Constant(-1)*inflow,(outer(n,u))),v)  *ds)
  
     #form
     #attention: advection pronounced by factor!!!!!!
-    eq = a_dg+Constant(1)*adv_dg-div(v)*p*dx+div(u)*q*dx
+    eq = a_dg+Constant(-1)*adv_dg-div(v)*p*dx+div(u)*q*dx
     eq -= dot(Constant((0.0, 0.0)),v)*dx
     a=lhs(eq)
     L=rhs(eq)
