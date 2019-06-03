@@ -1,5 +1,6 @@
 from firedrake import *
 import numpy as np
+import matplotlib.pyplot as plt
 
 def both(expr):
     return expr('+') + expr('-')
@@ -91,6 +92,14 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             break          
         else:
             u_linear.assign(u1)
+
+        #method of manufactured solutions
+        test=Function(W)
+        p_sol=Function(P).project(1.0-x)
+        test.sub(0).assign(inflow)
+        test.sub(1).assign(p_sol)
+        plt.plot((assemble(action(a,test)-L,bcs=bc_1).dat.data[0]))#maxnorm
+        plt.show()
 
     return w
 
