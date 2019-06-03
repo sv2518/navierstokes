@@ -5,13 +5,10 @@ def both(expr):
     return expr('+') + expr('-')
 
 
-def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
-    #generate and plot mesh
+def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
+    #generate mesh
     mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=1000,Ly=1,quadrilateral=True)
-    #plot(mesh)
-    import matplotlib.pyplot as plt
-    plt.show()
-
+    
     #function spaces
     U = FunctionSpace(mesh, "RTCF",1)
     P = FunctionSpace(mesh, "DG", 0)
@@ -21,74 +18,81 @@ def build_problem(mesh_size, parameters, aP=None, block_matrix=False):
     u,p = TrialFunctions(W)
     v,q = TestFunctions(W)
     f =Function(U)
-    #fvector = f.vector()
-    #a=np.random.uniform(size=fvector.local_size())
-    #fvector.set_local(np.array(-0*a/a))
 	
-    #laplacian
+    #building the operators
     n=FacetNormal(W.mesh())
-    nue=Constant(0.001)#viscosity
-    alpha=Constant(10.)
-    gamma=Constant(10.) 
-    kappa1=nue * alpha/Constant(mesh_size)
-    kappa2=nue * gamma/Constant(mesh_size)
-    #excluding exterior facets stuff: slip-BC
-    g=Constant((0.0,0.0))
+    nue=Constant(0.01)#viscosity
 
-    a_dg=(nue*inner(grad(u),grad(v))*dx
-           -inner(outer(v,n),nue*grad(u))*ds 
-           -inner(outer(u,n),nue*grad(v))*ds 
-           +kappa2*inner(v,u)*ds 
-           -inner(nue*avg(grad(v)),both(outer(u,n)))*dS
-           -inner(both(outer(v,n)),nue*avg(grad(u)))*dS
-           +kappa1*inner(both(outer(u,n)),both(outer(v,n)))*dS)
- 
+    #specify inflow/initial solution
     x,y=SpatialCoordinate(mesh)
     inflow=Function(U).project(as_vector((-1*(y-1)*(y),0.0*y)))
     inflow_uniform=Function(U).project(Constant((1.0,0.0)))  
 
-    un = 0.5*(dot(inflow, n) + abs(dot(inflow, n)))
-    adv_dg=(dot(inflow,div(outer(v,u)))*dx#like paper
-          -inner(v,(u*dot(inflow,n)))*ds#similar to matt piggots
-          -dot((v('+')-v('-')),(un('+')*u('+') - un('-')*u('-')))*dS)#like in the tutorial
-   # adv_dg=(dot(-u,div(outer(v,Constant(-1)*inflow)))*dx+
-   # dot(dot(avg(Constant(-1)*inflow),both(outer(n,u))),avg(v))*dS+
-   # dot(dot(Constant(-1)*inflow,(outer(n,u))),v)  *ds)
- 
-    #form
-    #attention: advection pronounced by factor???
-    eq = a_dg+Constant(-1.)*adv_dg-div(v)*p*dx+div(u)*q*dx
-    eq -= dot(Constant((0.0, 0.0)),v)*dx
-    a=lhs(eq)
-    L=rhs(eq)
+    #Picard iteration
+    u_linear=Function(U).assign(inflow)
+    counter=0
+    while(True):
 
-    #preconditioning(not used here)
-    if aP is not None:
-        aP = aP(W)
-    if block_matrix:
-        mat_type = 'nest'
-    else:
-        mat_type = 'aij'
-
-    #boundary conditions on As
-    bc_1=[]
-    bc1=DirichletBC(W.sub(0),inflow,1)#plane x=0
-    bc_1.append(bc1)
-    bc2=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
-    bc_1.append(bc2)
-    bc3=DirichletBC(W.sub(0),Constant((0.0,0.0)),4)#plane y=L
-    bc_1.append(bc3)
-
-    w = Function(W)
-    problem = LinearVariationalProblem(a, L, w, bc_1)
-    solver = LinearVariationalSolver(problem, solver_parameters=parameters)
-   
-
-    # check the mesh ordering
-    # print(mesh.coordinates.dat.data[:,1])        
-    # print(mesh.coordinates.dat.data[:,0])
+        #Laplacian
+        alpha=Constant(10.)
+        gamma=Constant(10.) 
+        kappa1=nue * alpha/Constant(mesh_size)
+        kappa2=nue * gamma/Constant(mesh_size)
+        a_dg=(nue*inner(grad(u),grad(v))*dx
+            -inner(outer(v,n),nue*grad(u))*ds 
+            -inner(outer(u,n),nue*grad(v))*ds 
+            +kappa2*inner(v,u)*ds 
+            -inner(nue*avg(grad(v)),both(outer(u,n)))*dS
+            -inner(both(outer(v,n)),nue*avg(grad(u)))*dS
+            +kappa1*inner(both(outer(u,n)),both(outer(v,n)))*dS)
+         
+        #Advection
+        un = 0.5*(dot(u_linear, n) + abs(dot(u_linear, n)))
+        adv_dg=(dot(u_linear,div(outer(v,u)))*dx#like paper
+            -inner(v,(u*dot(u_linear,n)))*ds#similar to matt piggots
+            -dot((v('+')-v('-')),(un('+')*u('+') - un('-')*u('-')))*dS)#like in the tutorial
     
-    return solver, w, a, L, bc_1
+        #form
+        eq = a_dg+Constant(-1.)*adv_dg-div(v)*p*dx+div(u)*q*dx
+        eq -= dot(Constant((0.0, 0.0)),v)*dx
+        a=lhs(eq)
+        L=rhs(eq)
+
+        #preconditioning(not used here)
+        if aP is not None:
+            aP = aP(W)
+        if block_matrix:
+            mat_type = 'nest'
+        else:
+            mat_type = 'aij'
+
+        #boundary conditions
+        bc_1=[]
+        bc1=DirichletBC(W.sub(0),inflow,1)#plane x=0
+        bc_1.append(bc1)
+        bc2=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
+        bc_1.append(bc2)
+        bc3=DirichletBC(W.sub(0),Constant((0.0,0.0)),4)#plane y=L
+        bc_1.append(bc3)
+
+        #build problem and solver
+        w = Function(W)
+        problem = LinearVariationalProblem(a, L, w, bc_1)
+        solver = LinearVariationalSolver(problem, solver_parameters=parameters)
+        solver.solve()
+        u1,p1=w.split()
+
+        #convergence criterion
+        eps=errornorm(u1,u_linear)#l2 by default
+        counter+=1
+        print("Picard iteration error",eps,", counter: ",counter)
+        if(eps<10**(-12)):
+            print("Picard iteration converged")  
+            break          
+        else:
+            u_linear.assign(u1)
+
+    return w
 
 
 #
@@ -103,13 +107,11 @@ parameters={
 print("Channel Flow")
 print("Cell number","IterationNumber")
 
-for n in range(4,10):
-    #solve with linear solve
-    solver, w, a, L, bc = build_problem(n, parameters,aP=None, block_matrix=False)
-    solver.solve()
-    #print(w.function_space().mesh().num_cells(), solver.ksp.getIterationNumber())
+for n in range(4,5):#increasing element number
+    
+    #solve
+    w = solve_problem(n, parameters,aP=None, block_matrix=False)
     u,p=w.split()
-
     
     #plot solutions
     File("poisson_mixed_velocity_.pvd").write(u)
@@ -121,7 +123,6 @@ for n in range(4,10):
 
     #print the velocity solutions vector
     print(assemble(u).dat.data)
-
 
     #plot solutions
     try:
