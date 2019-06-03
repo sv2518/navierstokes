@@ -22,11 +22,11 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #building the operators
     n=FacetNormal(W.mesh())
-    nue=Constant(0.01)#viscosity
+    nue=Constant(0.1)#viscosity
 
     #specify inflow/initial solution
     x,y=SpatialCoordinate(mesh)
-    inflow=Function(U).project(as_vector((-1*(y-1)*(y),0.0*y)))
+    inflow=Function(U).project(as_vector((-0.5*(y-1)*(y),0.0*y)))
     inflow_uniform=Function(U).project(Constant((1.0,0.0)))  
 
     #Picard iteration
@@ -87,7 +87,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         eps=errornorm(u1,u_linear)#l2 by default
         counter+=1
         print("Picard iteration error",eps,", counter: ",counter)
-        if(eps<10**(-12)):
+        if(eps<10**(-8)):
             print("Picard iteration converged")  
             break          
         else:
@@ -95,10 +95,10 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
         #method of manufactured solutions
         test=Function(W)
-        p_sol=Function(P).project(1.0-x)
+        p_sol=Function(P).project(1000-x)
         test.sub(0).assign(inflow)
-        test.sub(1).assign(p_sol)
-        plt.plot((assemble(action(a,test)-L,bcs=bc_1).dat.data[0]))#maxnorm
+        test.sub(1).assign(p_sol)#why does it not matter if I take this in or not?
+        plt.plot((assemble(action(a-L,test),bcs=bc_1).dat.data[0]))#maxnorm
         plt.show()
 
     return w
@@ -116,7 +116,7 @@ parameters={
 print("Channel Flow")
 print("Cell number","IterationNumber")
 
-for n in range(4,5):#increasing element number
+for n in range(4,9):#increasing element number
     
     #solve
     w = solve_problem(n, parameters,aP=None, block_matrix=False)
@@ -129,9 +129,6 @@ for n in range(4,5):#increasing element number
         import matplotlib.pyplot as plt
     except:
         warning("Matplotlib not imported")
-
-    #print the velocity solutions vector
-    print(assemble(u).dat.data)
 
     #plot solutions
     try:
