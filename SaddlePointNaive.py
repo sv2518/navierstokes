@@ -8,7 +8,7 @@ def both(expr):
 
 def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #generate mesh
-    mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=1000,Ly=1,quadrilateral=True)
+    mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=2,Ly=2,quadrilateral=True)
     
     #function spaces
     U = FunctionSpace(mesh, "RTCF",1)
@@ -22,13 +22,14 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #building the operators
     n=FacetNormal(W.mesh())
-    nue=Constant(0.1)#viscosity
+    nue=Constant(1.0)#viscosity
 
     #specify inflow/initial solution
     x,y=SpatialCoordinate(mesh)
-    inflow=Function(U).project(as_vector((-0.5*(y-1)*(y),0.0*y)))
-    inflow_uniform=Function(U).project(Constant((1.0,0.0)))  
-
+    lam=(-8.*pi**2/(nue**(-1)+sqrt(nue**(-2)+16*pi**2)))
+    inflow=Function(U).project(as_vector((1-exp(lam*x)*cos(2*pi*y),0.0)))
+    #inflow_uniform=Function(U).project(Constant((1.0,0.0)))  
+    
     #Picard iteration
     u_linear=Function(U).assign(inflow)
     counter=0
@@ -39,10 +40,12 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         gamma=Constant(10.) 
         kappa1=nue * alpha/Constant(mesh_size)
         kappa2=nue * gamma/Constant(mesh_size)
+      #  g=Function(U).project(as_vector((0.0,lam/(2*pi)*exp(lam*x)*sin(2*pi*y))))
+        g=Constant((0.0,0.0))
         a_dg=(nue*inner(grad(u),grad(v))*dx
             -inner(outer(v,n),nue*grad(u))*ds 
-            -inner(outer(u,n),nue*grad(v))*ds 
-            +kappa2*inner(v,u)*ds 
+            -inner(outer(u-g,n),nue*grad(v))*ds 
+            +kappa2*inner(v,u-g)*ds 
             -inner(nue*avg(grad(v)),both(outer(u,n)))*dS
             -inner(both(outer(v,n)),nue*avg(grad(u)))*dS
             +kappa1*inner(both(outer(u,n)),both(outer(v,n)))*dS)
@@ -86,7 +89,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         #convergence criterion
         eps=errornorm(u1,u_linear)#l2 by default
         counter+=1
-        print("Picard iteration error",eps,", counter: ",counter)
+        print("Picard iteration change in approximation",eps,", counter: ",counter)
         if(eps<10**(-8)):
             print("Picard iteration converged")  
             break          
@@ -95,11 +98,15 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
         #method of manufactured solutions
         test=Function(W)
-        p_sol=Function(P).project(1000-x)
-        test.sub(0).assign(inflow)
+        p_sol=Function(P).project(-1./2*exp(2*lam*x))
+        u_sol=Function(U).project(as_vector((1-exp(lam*x)*cos(2*pi*y),lam/(2*pi)*exp(lam*x)*sin(2*pi*y))))
+        test.sub(0).assign(u_sol)
         test.sub(1).assign(p_sol)#why does it not matter if I take this in or not?
-        plt.plot((assemble(action(a-L,test),bcs=bc_1).dat.data[0]))#maxnorm
-        plt.show()
+        #plt.plot((assemble(action(a-L,test),bcs=bc_1).dat.data[0]))#maxnorm
+        #plt.show()
+
+        print("velo error",errornorm(u1,u_sol),", pres error: ",errornorm(p1,p_sol))
+        
 
     return w
 
@@ -116,7 +123,7 @@ parameters={
 print("Channel Flow")
 print("Cell number","IterationNumber")
 
-for n in range(4,9):#increasing element number
+for n in range(6,7):#increasing element number
     
     #solve
     w = solve_problem(n, parameters,aP=None, block_matrix=False)
