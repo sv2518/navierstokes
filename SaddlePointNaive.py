@@ -8,7 +8,8 @@ def both(expr):
 
 def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #generate mesh
-    mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=1000,Ly=1,quadrilateral=True)
+    LX=1000
+    mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=1,quadrilateral=True)
     
     #function spaces
     U = FunctionSpace(mesh, "RTCF",1)
@@ -22,11 +23,11 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #building the operators
     n=FacetNormal(W.mesh())
-    nue=Constant(0.1)#viscosity
+    nue=Constant(1)#viscosity
 
     #specify inflow/initial solution
     x,y=SpatialCoordinate(mesh)
-    inflow=Function(U).project(as_vector((-0.5*(y-1)*(y),0.0*y)))
+    inflow=Function(U).project(as_vector((-0.25*(y-1)*(y),0.0*y)))
     inflow_uniform=Function(U).project(Constant((1.0,0.0)))  
 
     #Picard iteration
@@ -93,13 +94,15 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         else:
             u_linear.assign(u1)
 
-        #method of manufactured solutions
-        test=Function(W)
-        p_sol=Function(P).project(1000-x)
-        test.sub(0).assign(inflow)
-        test.sub(1).assign(p_sol)#why does it not matter if I take this in or not?
-        plt.plot((assemble(action(a-L,test),bcs=bc_1).dat.data[0]))#maxnorm
-        plt.show()
+    #method of manufactured solutions
+    test=Function(W)
+    p_sol=Function(P).project(LX-x)
+    test.sub(0).assign(inflow)
+    test.sub(1).assign(p_sol)#why does it not matter if I take this in or not?
+    # plt.plot((assemble(action(a-L-action(a,test),w),bcs=bc_1).dat.data[0]))
+    plt.plot((assemble(action(a-L,test),bcs=bc_1).dat.data[0]))
+        
+    plt.show()
 
     return w
 
