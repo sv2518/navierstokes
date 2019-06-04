@@ -8,7 +8,9 @@ def both(expr):
 
 def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #generate mesh
-    mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=2,Ly=2,quadrilateral=True)
+    LX=1.0
+    LY=2.0
+    mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
     
     #function spaces
     U = FunctionSpace(mesh, "RTCF",1)
@@ -22,7 +24,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #building the operators
     n=FacetNormal(W.mesh())
-    nue=Constant(1.0)#viscosity
+    nue=Constant(1)#viscosity
 
     #specify inflow/initial solution
     x,y=SpatialCoordinate(mesh)
@@ -38,8 +40,8 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         #Laplacian
         alpha=Constant(10.)
         gamma=Constant(10.) 
-        kappa1=nue * alpha/Constant(mesh_size)
-        kappa2=nue * gamma/Constant(mesh_size)
+        kappa1=nue * alpha*Constant(mesh_size)#??????
+        kappa2=nue * gamma*Constant(mesh_size)#???????
       #  g=Function(U).project(as_vector((0.0,lam/(2*pi)*exp(lam*x)*sin(2*pi*y))))
         g=Constant((0.0,0.0))
         a_dg=(nue*inner(grad(u),grad(v))*dx
@@ -105,7 +107,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         #plt.plot((assemble(action(a-L,test),bcs=bc_1).dat.data[0]))#maxnorm
         #plt.show()
 
-        print("velo error",errornorm(u1,u_sol),", pres error: ",errornorm(p1,p_sol))
+        print("velo error",errornorm(u1,u_sol,norm_type="Hdiv"),", pres error: ",errornorm(p1,p_sol))
         
 
     return w
@@ -123,7 +125,7 @@ parameters={
 print("Channel Flow")
 print("Cell number","IterationNumber")
 
-for n in range(6,7):#increasing element number
+for n in range(2,8):#increasing element number
     
     #solve
     w = solve_problem(n, parameters,aP=None, block_matrix=False)
