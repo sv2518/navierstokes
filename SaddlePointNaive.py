@@ -27,7 +27,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
     #specify inflow/initial solution
     x,y=SpatialCoordinate(mesh)
-    inflow=Function(U).project(as_vector((-0.25*(y-1)*(y),0.0*y)))
+    inflow=Function(U).project(as_vector((-1*(y-1)*(y),0.0*y)))
     inflow_uniform=Function(U).project(Constant((1.0,0.0)))  
 
     #Picard iteration
@@ -38,8 +38,8 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         #Laplacian
         alpha=Constant(10.)
         gamma=Constant(10.) 
-        kappa1=nue * alpha/Constant(mesh_size)
-        kappa2=nue * gamma/Constant(mesh_size)
+        kappa1=nue * alpha/Constant(LX/2**mesh_size)
+        kappa2=nue * gamma/Constant(LX/2**mesh_size)
         a_dg=(nue*inner(grad(u),grad(v))*dx
             -inner(outer(v,n),nue*grad(u))*ds 
             -inner(outer(u,n),nue*grad(v))*ds 
@@ -96,12 +96,11 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
     #method of manufactured solutions
     test=Function(W)
-    p_sol=Function(P).project(LX-x)
+    p_sol=Function(P).project(1000-x)
     test.sub(0).assign(inflow)
     test.sub(1).assign(p_sol)#why does it not matter if I take this in or not?
     # plt.plot((assemble(action(a-L-action(a,test),w),bcs=bc_1).dat.data[0]))
-    plt.plot((assemble(action(a-L,test),bcs=bc_1).dat.data[0]))
-        
+    plt.plot((assemble(action(a-L,test),bcs=bc_1).dat.data[0]))        
     plt.show()
 
     return w
