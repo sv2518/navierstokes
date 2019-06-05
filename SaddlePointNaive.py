@@ -31,17 +31,24 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     inflow=Function(U).project(as_vector((-0.5*(y-1)*(y),0.0*y)))
     inflow_uniform=Function(U).project(Constant((1.0,0.0)))  
 
-    #Picard iteration
-    u_linear=Function(U).assign(inflow)
-    counter=0
-    while(True):
+    #TODO: define BC
+    #boundary conditions
+        bc_1=[]
+        bc1=DirichletBC(W.sub(0),inflow,1)#plane x=0
+        bc_1.append(bc1)
+        bc2=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
+        bc_1.append(bc2)
+        bc3=DirichletBC(W.sub(0),Constant((0.0,0.0)),4)#plane y=L
+        bc_1.append(bc3)
 
-        #Laplacian
+    #TODO: define operators and forms hier
+    #TODO: operators for laplacian, advection, pressure gradient
+    #Laplacian
         alpha=Constant(10.)
         gamma=Constant(10.) 
         kappa1=nue * alpha/Constant(LX/2**mesh_size)
         kappa2=nue * gamma/Constant(LX/2**mesh_size)
-        a_dg=(nue*inner(grad(u),grad(v))*dx
+        lapl_dg=(nue*inner(grad(u),grad(v))*dx
             -inner(outer(v,n),nue*grad(u))*ds 
             -inner(outer(u,n),nue*grad(v))*ds 
             +kappa2*inner(v,u)*ds 
@@ -51,15 +58,36 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
          
         #Advection
         un = 0.5*(dot(u_linear, n) + abs(dot(u_linear, n)))
-        adv_dg=(dot(u_linear,div(outer(v,u)))*dx#like paper
+        adv_dg=-(dot(u_linear,div(outer(v,u)))*dx#like paper
             -inner(v,(u*dot(u_linear,n)))*ds#similar to matt piggots
             -dot((v('+')-v('-')),(un('+')*u('+') - un('-')*u('-')))*dS)#like in the tutorial
+
+        #Pressure Gradient
+        pres_dg=div(v)*p*dx+div(u)*q*dx
     
         #form
-        eq = a_dg+Constant(-1.)*adv_dg-div(v)*p*dx+div(u)*q*dx
-        eq -= dot(Constant((0.0, 0.0)),v)*dx
-        a=lhs(eq)
-        L=rhs(eq)
+        #eq = a_dg+adv_dg+pres_dg
+        #eq -= dot(Constant((0.0, 0.0)),v)*dx
+        #a=lhs(eq)
+        #L=rhs(eq)
+
+
+    #TODO: forms for predictor, pressure update, corrector
+    predictor=
+    pressure=
+    corrector=
+
+    #TODO: outerloop for time progress
+    # TODO: ->innerloop for progressing Picard iteration for predictor 
+    #TODO: ->evaluate pressure update
+    #TODO: ->evluate velocity correction
+
+    #Picard iteration
+    u_linear=Function(U).assign(inflow)
+    counter=0
+    while(True):
+
+        
 
         #preconditioning(not used here)
         if aP is not None:
@@ -69,14 +97,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         else:
             mat_type = 'aij'
 
-        #boundary conditions
-        bc_1=[]
-        bc1=DirichletBC(W.sub(0),inflow,1)#plane x=0
-        bc_1.append(bc1)
-        bc2=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
-        bc_1.append(bc2)
-        bc3=DirichletBC(W.sub(0),Constant((0.0,0.0)),4)#plane y=L
-        bc_1.append(bc3)
+        
 
         #build problem and solver
         nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
@@ -87,28 +108,28 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         u1,p1=w.split()
 
         #convergence criterion
-        eps=errornorm(u1,u_linear)#l2 by default
-        counter+=1
-        print("Picard iteration error",eps,", counter: ",counter)
-        if(eps<10**(-12)):
-            print("Picard iteration converged")  
-            break          
-        else:
-            u_linear.assign(u1)
+        #eps=errornorm(u1,u_linear)#l2 by default
+        #counter+=1
+        #print("Picard iteration error",eps,", counter: ",counter)
+        #if(eps<10**(-12)):
+        #    print("Picard iteration converged")  
+        #    break          
+        #else:
+        #    u_linear.assign(u1)
 
 
     #method of manufactured solutions
-    test=Function(W)
-    p_sol=Function(P).project(-(x-50)/50*4)
-    test.sub(0).assign(inflow)
-    test.sub(1).assign(p_sol)
+    #test=Function(W)
+    #p_sol=Function(P).project(-(x-50)/50*4)
+    #test.sub(0).assign(inflow)
+    #test.sub(1).assign(p_sol)
     # plt.plot((assemble(action(a-L,w),bcs=bc_1).dat.data[0]))
-    plt.plot((assemble(action(a-L-action(a-L,test),test),bcs=bc_1).dat.data[0]))
-    plt.show()
+    #plt.plot((assemble(action(a-L-action(a-L,test),test),bcs=bc_1).dat.data[0]))
+    #plt.show()
 
-    conv=max(abs(assemble(action(a-L-action(a,test),test),bcs=bc_1).dat.data[0]))
-    d_x=LX/2**mesh_size
-    return w,conv,d_x
+    #conv=max(abs(assemble(action(a-L-action(a,test),test),bcs=bc_1).dat.data[0]))
+    #d_x=LX/2**mesh_size
+    return w#,conv,d_x
 
 #
 parameters={
