@@ -25,9 +25,9 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #building the operators
     n=FacetNormal(W.mesh())
-    nue=Constant(0.4)#re=40
+    nue=Constant(1.)#re=40
 
-    #specify inflow/initial solution
+    #specify inflow/solution
     x,y=SpatialCoordinate(mesh)
     lam=(-8.*pi**2/(nue**(-1)+sqrt(nue**(-2)+16*pi**2)))
     ux=1-exp(lam*x)*cos(2*pi*y)
@@ -48,8 +48,8 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         kappa1=nue * alpha/Constant(LY/2**mesh_size)#??????
         kappa2=nue * gamma/Constant(LY/2**mesh_size)#???????
 
-        #g=Function(U).project(as_vector((tang,0.0))) #tangential comp
-        g=Constant((0.0,0.0))
+        g=Function(U).project(as_vector((0.0,uy))) #tangential comp
+        #g=Constant((0.0,0.0))
         a_dg=(nue*inner(grad(u),grad(v))*dx
             -inner(outer(v,n),nue*grad(u))*ds 
             -inner(outer(u-g,n),nue*grad(v))*ds 
@@ -80,8 +80,8 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
         #boundary conditions
         bc_1=[]
-        bc0=DirichletBC(W.sub(1),p_sol,1)
-        bc_1.append(bc0)
+     #   bc0=DirichletBC(W.sub(1),p_sol,1)
+     #   bc_1.append(bc0)
         bc1=DirichletBC(W.sub(0),inflow,1)#plane x=0
         bc_1.append(bc1)
         bc2=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
