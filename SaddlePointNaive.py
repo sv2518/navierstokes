@@ -25,7 +25,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #building the operators
     n=FacetNormal(W.mesh())
-    nue=Constant(1.)#re=40
+    nue=Constant(0.4)#re=40
 
     #specify inflow/solution
     x,y=SpatialCoordinate(mesh)
