@@ -99,14 +99,14 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
     #method of manufactured solutions
     test=Function(W)
-    p_sol=Function(P).project(LX-x)
+    p_sol=Function(P).project(-(x-50)/50*4)
     test.sub(0).assign(inflow)
     test.sub(1).assign(p_sol)
-    # plt.plot((assemble(action(a-L-action(a,test),w),bcs=bc_1).dat.data[0]))
-    plt.plot((assemble(action(a-L,test),bcs=bc_1).dat.data[0]))        
+    # plt.plot((assemble(action(a-L,w),bcs=bc_1).dat.data[0]))
+    plt.plot((assemble(action(a-L-action(a-L,test),test),bcs=bc_1).dat.data[0]))
     plt.show()
 
-    conv=max(abs(assemble(action(a-L,test),bcs=bc_1).dat.data[0]))
+    conv=max(abs(assemble(action(a-L-action(a,test),test),bcs=bc_1).dat.data[0]))
     d_x=LX/2**mesh_size
     return w,conv,d_x
 
