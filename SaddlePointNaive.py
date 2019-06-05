@@ -8,9 +8,12 @@ def both(expr):
 
 def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #generate mesh
-    LX=1000
-    mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=1,quadrilateral=True)
+    LX=2
+    LY=2
+    mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
     
+
+
     #function spaces
     U = FunctionSpace(mesh, "RTCF",1)
     P = FunctionSpace(mesh, "DG", 0)
@@ -96,7 +99,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
     #method of manufactured solutions
     test=Function(W)
-    p_sol=Function(P).project(1000-x)
+    p_sol=Function(P).project(LX-x)
     test.sub(0).assign(inflow)
     test.sub(1).assign(p_sol)#why does it not matter if I take this in or not?
     # plt.plot((assemble(action(a-L-action(a,test),w),bcs=bc_1).dat.data[0]))
