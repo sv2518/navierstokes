@@ -61,7 +61,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         #Advection
         un = 0.5*(dot(u_linear, n) + abs(dot(u_linear, n)))
         adv_dg=(dot(u_linear,div(outer(v,u)))*dx#like paper
-            -inner(v,(u*dot(u_linear,n)))*ds#similar to matt piggots
+            -inner(v,((u-g)*dot(u_linear,n)))*ds#similar to matt piggots
             -dot((v('+')-v('-')),(un('+')*u('+') - un('-')*u('-')))*dS)#like in the tutorial
     
         #form
@@ -80,8 +80,8 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
         #boundary conditions
         bc_1=[]
-     #   bc0=DirichletBC(W.sub(1),p_sol,1)
-     #   bc_1.append(bc0)
+      #  bc0=DirichletBC(W.sub(1),p_sol,1)
+      #  bc_1.append(bc0)
         bc1=DirichletBC(W.sub(0),inflow,1)#plane x=0
         bc_1.append(bc1)
         bc2=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
