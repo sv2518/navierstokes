@@ -8,12 +8,10 @@ def both(expr):
 
 def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #generate mesh
-    LX=2
-    LY=2
+    LX=100
+    LY=1
     mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
     
-
-
     #function spaces
     U = FunctionSpace(mesh, "RTCF",1)
     P = FunctionSpace(mesh, "DG", 0)
@@ -30,7 +28,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
     #specify inflow/initial solution
     x,y=SpatialCoordinate(mesh)
-    inflow=Function(U).project(as_vector((-1*(y-1)*(y),0.0*y)))
+    inflow=Function(U).project(as_vector((-0.5*(y-1)*(y),0.0*y)))
     inflow_uniform=Function(U).project(Constant((1.0,0.0)))  
 
     #Picard iteration
@@ -81,9 +79,10 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         bc_1.append(bc3)
 
         #build problem and solver
+        nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
         w = Function(W)
         problem = LinearVariationalProblem(a, L, w, bc_1)
-        solver = LinearVariationalSolver(problem, solver_parameters=parameters)
+        solver = LinearVariationalSolver(problem, nullspace=nullspace,solver_parameters=parameters)
         solver.solve()
         u1,p1=w.split()
 
@@ -91,23 +90,25 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         eps=errornorm(u1,u_linear)#l2 by default
         counter+=1
         print("Picard iteration error",eps,", counter: ",counter)
-        if(eps<10**(-8)):
+        if(eps<10**(-12)):
             print("Picard iteration converged")  
             break          
         else:
             u_linear.assign(u1)
 
+
     #method of manufactured solutions
     test=Function(W)
     p_sol=Function(P).project(LX-x)
     test.sub(0).assign(inflow)
-    test.sub(1).assign(p_sol)#why does it not matter if I take this in or not?
+    test.sub(1).assign(p_sol)
     # plt.plot((assemble(action(a-L-action(a,test),w),bcs=bc_1).dat.data[0]))
     plt.plot((assemble(action(a-L,test),bcs=bc_1).dat.data[0]))        
     plt.show()
 
-    return w
-
+    conv=max(abs(assemble(action(a-L,test),bcs=bc_1).dat.data[0]))
+    d_x=LX/2**mesh_size
+    return w,conv,d_x
 
 #
 parameters={
@@ -121,11 +122,17 @@ parameters={
 print("Channel Flow")
 print("Cell number","IterationNumber")
 
-for n in range(4,9):#increasing element number
+convergence=[]
+refin=range(4,9)
+delta_x=[]
+for n in refin:#increasing element number
     
     #solve
-    w = solve_problem(n, parameters,aP=None, block_matrix=False)
+    w,conv,d_x = solve_problem(n, parameters,aP=None, block_matrix=False)
     u,p=w.split()
+    convergence.append(conv)
+    delta_x.append(d_x)
+
     
     #plot solutions
     File("poisson_mixed_velocity_.pvd").write(u)
@@ -150,3 +157,14 @@ for n in range(4,9):#increasing element number
     except:
         warning("Cannot show figure")
 
+print("max error in velocity",convergence)
+
+#convergence plot
+fig = plt.figure()
+axis = fig.gca()
+linear=convergence
+axis.loglog(refin,linear)
+axis.plot(refin,refin[::-1],'r*')
+axis.set_xlabel('$Level$')
+axis.set_ylabel('$||e||_{\infty}$')
+plt.show()
