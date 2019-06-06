@@ -8,7 +8,7 @@ def both(expr):
 
 def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #generate mesh
-    LX=100
+    LX=200
     LY=1
     mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
     
@@ -24,12 +24,14 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #building the operators
     n=FacetNormal(W.mesh())
-    nue=Constant(1)#viscosity
+    nue=Constant(1.)#viscosity
 
     #specify inflow/initial solution
     x,y=SpatialCoordinate(mesh)
-    inflow=Function(U).project(as_vector((-0.5*(y-1)*(y),0.0*y)))
-    inflow_uniform=Function(U).project(Constant((1.0,0.0)))  
+    u_exact=as_vector((-0.5*(y-1)*y,0.0*y))
+    p_exact=-1*(x-LX)
+
+    inflow=Function(U).project(u_exact)
 
     #Picard iteration
     u_linear=Function(U).assign(inflow)
@@ -40,7 +42,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         alpha=Constant(10.)
         gamma=Constant(10.) 
         h=CellVolume(mesh)/FacetArea(mesh)
-        havg=2*avg(CellVolume(mesh))/FacetArea(mesh)
+        havg=avg(CellVolume(mesh))/FacetArea(mesh)
         kappa1=nue*alpha/havg
         kappa2=nue*gamma/h
 
@@ -60,7 +62,11 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     
         #form
         eq = a_dg+Constant(-1.)*adv_dg-div(v)*p*dx+div(u)*q*dx
-        eq += dot(Constant((0.0, 0.0)),v)*dx
+
+        #method of manufactured solutions
+        strongform1=Function(U).project(div(grad(u_exact))-dot(u_exact,grad(u_exact))-grad(p_exact)+f)
+        strongform2=Function(P).project(div(u_exact))
+        eq -=(dot(strongform1,v)*dx+dot(strongform2,q)*dx)
         a=lhs(eq)
         L=rhs(eq)
 
@@ -82,10 +88,9 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         bc_1.append(bc3)
 
         #build problem and solver
-        nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
         w = Function(W)
         problem = LinearVariationalProblem(a, L, w, bc_1)
-        solver = LinearVariationalSolver(problem, nullspace=nullspace,solver_parameters=parameters)
+        solver = LinearVariationalSolver(problem, solver_parameters=parameters)
         solver.solve()
         u1,p1=w.split()
 
@@ -93,28 +98,28 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         eps=errornorm(u1,u_linear)#l2 by default
         counter+=1
         print("Picard iteration error",eps,", counter: ",counter)
-        if(eps<10**(-8)):
+        if(eps<10**(-12)):
             print("Picard iteration converged")  
             break          
         else:
             u_linear.assign(u1)
 
+    plt.plot(assemble(w.sub(0)-Function(U).project(u_exact)).dat.data)
+    plt.show()
 
-    #method of manufactured solutions
-    test=Function(W)
-    p_sol=Function(P).project(-(x-50)/50*4)
-    test.sub(0).assign(inflow)
-    test.sub(1).assign(p_sol)
-
-    strongform1=Function(U).project(div(grad(inflow))-dot(inflow,grad(inflow))-grad(p_sol)+f)
-    strongform2=Function(P).project(div(inflow))
-    plt.plot((assemble(action(a-L-dot(strongform1,v)*dx-dot(strongform2,q)*dx,w),bcs=bc_1).dat[0].data))
+    plt.plot(assemble(w.sub(1)-Function(P).project(p_exact)).dat.data)
     plt.show()
 
     #L2 error of divergence
     print("L2 error of divergence",errornorm(Function(P).project(div(w.sub(0))),Function(P)))
+    print("L_inf error of velo",max(abs(assemble(w.sub(0)).dat.data)))
+    print("L_inf error of pres",max(abs(assemble(w.sub(1)).dat.data)))
+    print("L_2 error of velo", errornorm(w.sub(0),Function(U)))
+    print("L_2 error of pres",  errornorm(w.sub(1),Function(P)))
+    print("Hdiv error of velo", errornorm(w.sub(0),Function(U),"Hdiv"))
+    print("Hdiv error of pres",  errornorm(w.sub(1),Function(P),"Hdiv"))
 
-    conv=max(abs(assemble(action(a-L-dot(strongform1,v)*dx-dot(strongform2,q)*dx,w),bcs=bc_1).dat[0].data))
+    conv=max(abs(assemble(w.sub(0)).dat.data))
     d_x=LX/2**mesh_size
     return w,conv,d_x
 
@@ -172,7 +177,7 @@ fig = plt.figure()
 axis = fig.gca()
 linear=convergence
 axis.loglog(refin,linear)
-axis.plot(refin,refin[::-1],'r*')
+#axis.plot(refin,refin[::-1],'r*')
 axis.set_xlabel('$Level$')
 axis.set_ylabel('$||e||_{\infty}$')
 plt.show()
