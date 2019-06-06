@@ -11,6 +11,8 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     LX=100
     LY=1
     mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
+    dt=0.5
+    T=5
     
     #function spaces
     U = FunctionSpace(mesh, "RTCF",1)
@@ -22,101 +24,152 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     v,q = TestFunctions(W)
     f =Function(U)
 	
-    #building the operators
+    #normal and essentially reynolds number
     n=FacetNormal(W.mesh())
-    nue=Constant(1)#viscosity
+    nue=Constant(1)
 
     #specify inflow/initial solution
     x,y=SpatialCoordinate(mesh)
     inflow=Function(U).project(as_vector((-0.5*(y-1)*(y),0.0*y)))
     inflow_uniform=Function(U).project(Constant((1.0,0.0)))  
 
-    #TODO: define BC
     #boundary conditions
-        bc_1=[]
-        bc1=DirichletBC(W.sub(0),inflow,1)#plane x=0
-        bc_1.append(bc1)
-        bc2=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
-        bc_1.append(bc2)
-        bc3=DirichletBC(W.sub(0),Constant((0.0,0.0)),4)#plane y=L
-        bc_1.append(bc3)
+    bc=[]
+    infl=DirichletBC(W.sub(0),inflow,1)#plane x=0
+    bc.append(infl)
+    noslip_bottom=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
+    bc.append(noslip_bottom)
+    noslip_top=DirichletBC(W.sub(0),Constant((0.0,0.0)),4)#plane y=L
+    bc.append(noslip_top)
 
-    #TODO: define operators and forms hier
-    #TODO: operators for laplacian, advection, pressure gradient
-    #Laplacian
-        alpha=Constant(10.)
-        gamma=Constant(10.) 
-        kappa1=nue * alpha/Constant(LX/2**mesh_size)
-        kappa2=nue * gamma/Constant(LX/2**mesh_size)
-        lapl_dg=(nue*inner(grad(u),grad(v))*dx
-            -inner(outer(v,n),nue*grad(u))*ds 
-            -inner(outer(u,n),nue*grad(v))*ds 
-            +kappa2*inner(v,u)*ds 
-            -inner(nue*avg(grad(v)),both(outer(u,n)))*dS
-            -inner(both(outer(v,n)),nue*avg(grad(u)))*dS
-            +kappa1*inner(both(outer(u,n)),both(outer(v,n)))*dS)
+    #TODO: OPERATORS---------------------------------------------------------    
+    #Laplacian operator
+    #stability params
+    alpha=Constant(10.)
+    gamma=Constant(10.) 
+    kappa1=nue * alpha/Constant(LX/2**mesh_size)
+    kappa2=nue * gamma/Constant(LX/2**mesh_size)
+    lapl_dg=(nue*inner(grad(u),grad(v))*dx
+        -inner(outer(v,n),nue*grad(u))*ds 
+        -inner(outer(u,n),nue*grad(v))*ds 
+        +kappa2*inner(v,u)*ds 
+        -inner(nue*avg(grad(v)),both(outer(u,n)))*dS
+        -inner(both(outer(v,n)),nue*avg(grad(u)))*dS
+        +kappa1*inner(both(outer(u,n)),both(outer(v,n)))*dS)
          
-        #Advection
-        un = 0.5*(dot(u_linear, n) + abs(dot(u_linear, n)))
-        adv_dg=-(dot(u_linear,div(outer(v,u)))*dx#like paper
-            -inner(v,(u*dot(u_linear,n)))*ds#similar to matt piggots
-            -dot((v('+')-v('-')),(un('+')*u('+') - un('-')*u('-')))*dS)#like in the tutorial
+    #Advection operator
+    #conditional for upwind discretisation
+    u_linear=Function(U)
+    un = 0.5*(dot(u_linear, n) + abs(dot(u_linear, n))) 
+    adv_dg=-(dot(u_linear,div(outer(v,u)))*dx#like paper
+        -inner(v,(u*dot(u_linear,n)))*ds#similar to matt piggots
+        -dot((v('+')-v('-')),(un('+')*u('+') - un('-')*u('-')))*dS)#like in the tutorial
 
-        #Pressure Gradient
-        pres_dg=div(v)*p*dx+div(u)*q*dx
+    #Pressure Gradient
+    pres_dg=div(v)*p*dx
     
-        #form
-        #eq = a_dg+adv_dg+pres_dg
-        #eq -= dot(Constant((0.0, 0.0)),v)*dx
-        #a=lhs(eq)
-        #L=rhs(eq)
+    #Incompressibility
+    incomp_dg=div(u)*q*dx
+    
+    #Body Force 
+    f=Function(U).project(Constant((0.0, 0.0)))
+    force_dg =-dot(f,v)*dx
 
+    #Time derivative
+    time=Constant(dt)*inner((u-un),v)*dx
 
-    #TODO: forms for predictor, pressure update, corrector
-    predictor=
-    pressure=
-    corrector=
+    #TODO: FORMS-------------------------------------------------------------
+    p= Function(P).assign(Constant(1.0))#pres for init time step #??????
+    un=Function(U).assign(inflow) #velo for init time step
+    v_k.assign(un)#init Picard value vk=un
+    ubar_k=Constant(0.5)*(u_n+v_k) #init midstep
+    v_knew,pk_new=TrialFunctions(W)
+    ubar_knew=Constant(0.5)*(u_n+v_knew) #init midstep
+    
+    #Form for predictor
+    lapl_dg_pred=replace(lapl_dg, {u: ubar_knew})
+    adv_dg_pred=replace(adv_dg, {u: ubar_knew})
+    adv_dg_pred=replace(adv_dg, {u_linear: ubar_k})
+    incomp_dg_pred=replace(incomp_dg,{u:v_knew})
+    time_pred=replace(time_pred,{u:v_knew})
 
-    #TODO: outerloop for time progress
-    # TODO: ->innerloop for progressing Picard iteration for predictor 
-    #TODO: ->evaluate pressure update
-    #TODO: ->evluate velocity correction
+    eq_pred=time_pred+adv_dg_pred+pres_dg+lapl_dg_pred+force_dg+incomp_dg_pred
+    predictor=lhs(eq_pred)-rhs(eq_pred)
 
-    #Picard iteration
-    u_linear=Function(U).assign(inflow)
-    counter=0
-    while(True):
+    #Form for pressure correction
+    w,beta = TrialFunctions(W)
+    f_pres=div(v_knew)
+    force_dg_pres=replace(force_dg,{f:f_pres})
+    incomp_dg_pres=replace(incomp_dg,{u:w})
+    pres_dg_pres=replace(pres_dg,{p:beta})
+    
+    eq_pres=dot(w,v)+force_dg_pres+incomp_dg_pres+pres_dg_pres
+    pressure=lhs(eq_pres)-rhs(eq_pres)
+
+    #Form for corrector
+    v_knew,p_knew= TrialFunctions(W)
+    pres_dg_corr=replace(pres_dg,{p:p_knew})
+
+    eq_corr=time_pred+adv_dg_pred+pres_dg_corr+lapl_dg_pred+force_dg+incomp_dg_pred
+    corrector=lhs(eq_corr)-rhs(eq_corr)
+
+    #TODO: LOOPS------------------------------------------------------------
+
+    #outerloop for time progress
+    t = 0.0
+    while t < T - 0.5*dt:
+        
+        #innerloop for progressing Picard iteration 
+        counter=0
+        while(True):
+
+            #evaluate  predictor 
+            #build problem and solver (maybe also outside??)
+            nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
+            w_pred = Function(W)
+            problem = LinearVariationalProblem(a, L, w_pred, bc)
+            solver = LinearVariationalSolver(predictor, nullspace=nullspace,solver_parameters=parameters)
+            solver.solve()
+            usolhat,psolhat=w_pred.split()
+            v_knew.assign(usolhat)
+
+            #evaluate pressure update
+            nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
+            w_pres = Function(W)
+            problem = LinearVariationalProblem(a, L, w_pres, bc)
+            solver = LinearVariationalSolver(predictor, nullspace=nullspace,solver_parameters=parameters)
+            solver.solve()
+            wsol,betasol=w_pres.split()
+            p_knew.assign(p+betasol/dt)
+
+            #evaluate velocity correction
+            nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
+            w_corr = Function(W)
+            problem = LinearVariationalProblem(a, L, w_corr, bc)
+            solver = LinearVariationalSolver(predictor, nullspace=nullspace,solver_parameters=parameters)
+            solver.solve()
+            usol,psol=w_corr.split()
+
+            #convergence criterion
+            #eps=errornorm(u1,u_linear)#l2 by default
+            #counter+=1
+            #print("Picard iteration error",eps,", counter: ",counter)
+            if(eps<10**(-5)):
+                print("Picard iteration converged")  
+                break          
+            else:
+                v_k.assign(u1)
+                p.assign(psol)
+
+        un.assign(usol)
+        p.assign(psol)
+        t += dt
+            
+        
 
         
 
-        #preconditioning(not used here)
-        if aP is not None:
-            aP = aP(W)
-        if block_matrix:
-            mat_type = 'nest'
-        else:
-            mat_type = 'aij'
-
         
-
-        #build problem and solver
-        nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
-        w = Function(W)
-        problem = LinearVariationalProblem(a, L, w, bc_1)
-        solver = LinearVariationalSolver(problem, nullspace=nullspace,solver_parameters=parameters)
-        solver.solve()
-        u1,p1=w.split()
-
-        #convergence criterion
-        #eps=errornorm(u1,u_linear)#l2 by default
-        #counter+=1
-        #print("Picard iteration error",eps,", counter: ",counter)
-        #if(eps<10**(-12)):
-        #    print("Picard iteration converged")  
-        #    break          
-        #else:
-        #    u_linear.assign(u1)
-
 
     #method of manufactured solutions
     #test=Function(W)
