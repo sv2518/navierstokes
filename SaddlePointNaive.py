@@ -39,8 +39,11 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         #Laplacian
         alpha=Constant(10.)
         gamma=Constant(10.) 
-        kappa1=nue * alpha/Constant(LX/2**mesh_size)
-        kappa2=nue * gamma/Constant(LX/2**mesh_size)
+        h=CellVolume(mesh)/FacetArea(mesh)
+        havg=2*avg(CellVolume(mesh))/FacetArea(mesh)
+        kappa1=nue*alpha/havg
+        kappa2=nue*gamma/h
+
         a_dg=(nue*inner(grad(u),grad(v))*dx
             -inner(outer(v,n),nue*grad(u))*ds 
             -inner(outer(u,n),nue*grad(v))*ds 
@@ -57,7 +60,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     
         #form
         eq = a_dg+Constant(-1.)*adv_dg-div(v)*p*dx+div(u)*q*dx
-        eq -= dot(Constant((0.0, 0.0)),v)*dx
+        eq += dot(Constant((0.0, 0.0)),v)*dx
         a=lhs(eq)
         L=rhs(eq)
 
@@ -90,7 +93,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         eps=errornorm(u1,u_linear)#l2 by default
         counter+=1
         print("Picard iteration error",eps,", counter: ",counter)
-        if(eps<10**(-12)):
+        if(eps<10**(-8)):
             print("Picard iteration converged")  
             break          
         else:
@@ -102,11 +105,16 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     p_sol=Function(P).project(-(x-50)/50*4)
     test.sub(0).assign(inflow)
     test.sub(1).assign(p_sol)
-    # plt.plot((assemble(action(a-L,w),bcs=bc_1).dat.data[0]))
-    plt.plot((assemble(action(a-L-action(a-L,test),test),bcs=bc_1).dat.data[0]))
+
+    strongform1=Function(U).project(div(grad(inflow))-dot(inflow,grad(inflow))-grad(p_sol)+f)
+    strongform2=Function(P).project(div(inflow))
+    plt.plot((assemble(action(a-L-dot(strongform1,v)*dx-dot(strongform2,q)*dx,w),bcs=bc_1).dat[0].data))
     plt.show()
 
-    conv=max(abs(assemble(action(a-L-action(a,test),test),bcs=bc_1).dat.data[0]))
+    #L2 error of divergence
+    print("L2 error of divergence",errornorm(Function(P).project(div(w.sub(0))),Function(P)))
+
+    conv=max(abs(assemble(action(a-L-dot(strongform1,v)*dx-dot(strongform2,q)*dx,w),bcs=bc_1).dat[0].data))
     d_x=LX/2**mesh_size
     return w,conv,d_x
 
