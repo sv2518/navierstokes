@@ -76,12 +76,13 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     force_dg =-dot(f,v)*dx
 
     #Time derivative
-    time=Constant(dt)*inner((u-un),v)*dx
+    u0=Function(U)
+    time=Constant(dt)*inner((u-u0),v)*dx
 
     #TODO: FORMS-------------------------------------------------------------
     p= Function(P).assign(Constant(1.0))#pres for init time step #??????
-    un=Function(U).assign(inflow) #velo for init time step
-    v_k.assign(un)#init Picard value vk=un
+    u_n=Function(U).assign(inflow) #velo for init time step
+    v_k=Function(U).assign(u_n)#init Picard value vk=un
     ubar_k=Constant(0.5)*(u_n+v_k) #init midstep
     v_knew,pk_new=TrialFunctions(W)
     ubar_knew=Constant(0.5)*(u_n+v_knew) #init midstep
@@ -91,7 +92,8 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     adv_dg_pred=replace(adv_dg, {u: ubar_knew})
     adv_dg_pred=replace(adv_dg, {u_linear: ubar_k})
     incomp_dg_pred=replace(incomp_dg,{u:v_knew})
-    time_pred=replace(time_pred,{u:v_knew})
+    time_pred=replace(time,{u:v_knew})
+    time_pred=replace(time_pred,{u0:u_n})
 
     eq_pred=time_pred+adv_dg_pred+pres_dg+lapl_dg_pred+force_dg+incomp_dg_pred
     predictor=lhs(eq_pred)-rhs(eq_pred)
@@ -134,6 +136,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             v_knew.assign(usolhat)
 
             #evaluate pressure update
+            #amg as preconditioner?
             nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
             w_pres = Function(W)
             problem = LinearVariationalProblem(a, L, w_pres, bc)
