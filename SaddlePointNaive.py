@@ -76,17 +76,17 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     time=-1/Constant(dt)*inner(v_knew-u_n,v)*dx
 
     #Incompressibility
-    incomp_dg=div(v_knew)*q*dx
+    incomp_dg=-div(v_knew)*q*dx
     
     #Body Force 
     f=Function(U)
-    force_dg =dot(f,v)*dx#sign right?
+    force_dg =-dot(f,v)*dx#sign right?
 
     #TODO: FORMS------------------------------------------- 
     eq=time+adv_dg+lapl_dg+force_dg+incomp_dg
 
     #form for predictor
-    pres_dg_pred=div(v)*p_k*dx
+    pres_dg_pred=-div(v)*p_k*dx
     eq_pred=eq+pres_dg_pred
 
     #Form for pressure correction
