@@ -11,8 +11,8 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     LX=100
     LY=1
     mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
-    dt=0.00001 #for lower Reynoldnumber lower dt??
-    T=0.00005
+    dt=0.001 #for lower Reynoldnumber lower dt??
+    T=0.005
     
     #function spaces
     U = FunctionSpace(mesh, "RTCF",1)
@@ -26,7 +26,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #normal and essentially reynolds number
     n=FacetNormal(W.mesh())
-    nue=Constant(1)
+    nue=Constant(0.01)
 
     #specify inflow/initial solution
     x,y=SpatialCoordinate(mesh)
@@ -43,7 +43,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     bc.append(noslip_top)
 
     #intial values
-    p_n= Function(P).project(100-x)#pres for init time step #??????
+    p_n= Function(P).project((100-x))#pres for init time step #??????
     u_n=Function(U).assign(inflow) #velo for init time step
     v_k=Function(U).assign(u_n)#init Picard value vk=un
     p_k=Function(P).assign(p_n)#init Picard value vk=un
@@ -94,12 +94,12 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #Form for pressure correction
     w,beta = TrialFunctions(W)
     v_knew_sol=Function(U)
-    f_pres=div(v_knew_sol) 
+    f_pres=Function(P).project(div(v_knew_sol)) 
     force_dg_pres=dot(f_pres,q)*dx#sign right?
     incomp_dg_pres=div(w)*q*dx
     pres_dg_pres=div(v)*beta*dx
     
-    eq_pres=dot(w,v)*dx-force_dg_pres+incomp_dg_pres+pres_dg_pres #dt somewhere in here??
+    eq_pres=dot(w,v)*dx-force_dg_pres+incomp_dg_pres-pres_dg_pres #dt somewhere in here??
 
     #Form for corrector
     p_k_update=Function(P)
@@ -121,18 +121,13 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             #build problem and solver (maybe also outside??)
             print("\n....predictor solve\n")
             w_pred = Function(W)
-            predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred,bc)
+            predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred,[noslip_bottom,noslip_top])
             solver = LinearVariationalSolver(predictor, solver_parameters=parameters)
             solver.solve()
             usolhat,psolhat=w_pred.split()
               
             plot(usolhat)
             plt.title("Velocity")
-            plt.xlabel("x")
-            plt.ylabel("y")
-            plt.show()
-            plot(psolhat)
-            plt.title("Pressure")
             plt.xlabel("x")
             plt.ylabel("y")
             plt.show()
@@ -143,10 +138,11 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             v_knew_sol.assign(usolhat)
             #amg as preconditioner?
             w_pres = Function(W)
-            pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres, bc)
+            pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres,DirichletBC(W.sub(1),Constant((0.0)),2))
             solver = LinearVariationalSolver(pressure, solver_parameters=parameters)
             solver.solve()
             wsol,betasol=w_pres.split()
+            print(assemble(betasol).dat.data)
             p_knew=Function(P).project(p_n+betasol/dt)
             #v_knew=Function(U).project(usolhat+grad(betasol))
 
@@ -154,11 +150,9 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             print("\n.....corrector solve\ns")
             #first update corrector form
             p_k_update.assign(p_knew)
-
-            nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
             w_corr = Function(W)
             corrector= LinearVariationalProblem(lhs(eq_corr),rhs(eq_corr), w_corr, bc)
-            solver = LinearVariationalSolver(corrector, nullspace=nullspace,solver_parameters=parameters)
+            solver = LinearVariationalSolver(corrector, solver_parameters=parameters)
             solver.solve()
             usol,psol=w_corr.split()
 
@@ -167,7 +161,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             plt.xlabel("x")
             plt.ylabel("y")
             plt.show()
-            plot(psol)
+            plot(p_knew)
             plt.title("Pressure")
             plt.xlabel("x")
             plt.ylabel("y")
@@ -182,10 +176,10 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
                 break          
             else:
                 v_k.assign(usol)
-                p_k.assign(psol)
+                p_k.assign(p_knew)
 
         u_n.assign(usol)
-        p_n.assign(psol)
+        p_n.assign(p_knew)
         t += dt
         
         plot(u_n)
@@ -218,19 +212,17 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     return w_corr#,conv,d_x
 
 #
-parameters={
+parameters={    
     "ksp_type": "gmres",
-    "ksp_monitor": None,
+    "ksp_rtol": 1e-8,
     "pc_type": "fieldsplit",
     "pc_fieldsplit_type": "schur",
-    "pc_fieldsplit_schur_fact_type": "lower",
+    "pc_fieldsplit_schur_fact_type": "full",
     "fieldsplit_0_ksp_type": "preonly",
-    "fieldsplit_0_pc_type": "mg",
+    "fieldsplit_0_pc_type": "ilu",
     "fieldsplit_1_ksp_type": "preonly",
-    "fieldsplit_1_pc_type": "python",
-    "fieldsplit_1_pc_python_type": "__main__.Mass",
-    "fieldsplit_1_aux_pc_type": "bjacobi",
-    "fieldsplit_1_aux_sub_pc_type": "icc"
+    "pc_fieldsplit_schur_precondition": "selfp",
+    "fieldsplit_1_pc_type": "hypre"
     }
 print("Channel Flow")
 print("Cell number","IterationNumber")
