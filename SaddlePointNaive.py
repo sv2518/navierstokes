@@ -42,78 +42,68 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     noslip_top=DirichletBC(W.sub(0),Constant((0.0,0.0)),4)#plane y=L
     bc.append(noslip_top)
 
-    #TODO: OPERATORS---------------------------------------------------------    
+    #intial values
+    p_n= Function(P).assign(Constant(1.0))#pres for init time step #??????
+    u_n=Function(U).assign(inflow) #velo for init time step
+    v_k=Function(U).assign(u_n)#init Picard value vk=un
+    p_k=Function(P).assign(p_n)#init Picard value vk=un
+
+    ubar_k=Constant(0.5)*(u_n+v_k) #init old midstep
+    v_knew,pk_new=TrialFunctions(W)
+    ubar_knew=Constant(0.5)*(u_n+v_knew) #init new midstep
+    
+    #TODO: OPERATORS---------------------------------------
+    #Advection operator
+    un = 0.5*(dot(ubar_k, n) + abs(dot(ubar_k, n)))#conditional for upwind discretisation
+    adv_dg=-(dot(ubar_k,div(outer(v,ubar_knew)))*dx#like paper
+        -inner(v,(u*dot(ubar_k,n)))*ds#similar to matt piggots
+        -dot((v('+')-v('-')),(un('+')*ubar_knew('+') - un('-')*ubar_knew('-')))*dS)#like in the tutorial
+
     #Laplacian operator
-    #stability params
     alpha=Constant(10.)
     gamma=Constant(10.) 
     kappa1=nue * alpha/Constant(LX/2**mesh_size)
     kappa2=nue * gamma/Constant(LX/2**mesh_size)
-    lapl_dg=(nue*inner(grad(u),grad(v))*dx
-        -inner(outer(v,n),nue*grad(u))*ds 
-        -inner(outer(u,n),nue*grad(v))*ds 
-        +kappa2*inner(v,u)*ds 
-        -inner(nue*avg(grad(v)),both(outer(u,n)))*dS
-        -inner(both(outer(v,n)),nue*avg(grad(u)))*dS
-        +kappa1*inner(both(outer(u,n)),both(outer(v,n)))*dS)
-         
-    #Advection operator
-    #conditional for upwind discretisation
-    u_linear=Function(U)
-    un = 0.5*(dot(u_linear, n) + abs(dot(u_linear, n))) 
-    adv_dg=-(dot(u_linear,div(outer(v,u)))*dx#like paper
-        -inner(v,(u*dot(u_linear,n)))*ds#similar to matt piggots
-        -dot((v('+')-v('-')),(un('+')*u('+') - un('-')*u('-')))*dS)#like in the tutorial
-
-    #Pressure Gradient
-    pres_dg=div(v)*p*dx
-    
-    #Incompressibility
-    incomp_dg=div(u)*q*dx
-    
-    #Body Force 
-    f=Function(U).project(Constant((0.0, 0.0)))
-    force_dg =-dot(f,v)*dx
+    lapl_dg=(nue*inner(grad(ubar_knew),grad(v))*dx
+        -inner(outer(v,n),nue*grad(ubar_knew))*ds 
+        -inner(outer(ubar_knew,n),nue*grad(v))*ds 
+        +kappa2*inner(v,ubar_knew)*ds 
+        -inner(nue*avg(grad(v)),both(outer(ubar_knew,n)))*dS
+        -inner(both(outer(v,n)),nue*avg(grad(ubar_knew)))*dS
+        +kappa1*inner(both(outer(ubar_knew,n)),both(outer(v,n)))*dS)
 
     #Time derivative
-    u0=Function(U)
-    time=Constant(dt)*inner((u-u0),v)*dx
+    time=1/Constant(dt)*inner(v_knew-u_n,v)*dx
 
-    #TODO: FORMS-------------------------------------------------------------
-    p= Function(P).assign(Constant(1.0))#pres for init time step #??????
-    u_n=Function(U).assign(inflow) #velo for init time step
-    v_k=Function(U).assign(u_n)#init Picard value vk=un
-    ubar_k=Constant(0.5)*(u_n+v_k) #init midstep
-    v_knew,pk_new=TrialFunctions(W)
-    ubar_knew=Constant(0.5)*(u_n+v_knew) #init midstep
+    #Incompressibility
+    incomp_dg=div(v_knew)*q*dx
     
-    #Form for predictor
-    lapl_dg_pred=replace(lapl_dg, {u: ubar_knew})
-    adv_dg_pred=replace(adv_dg, {u: ubar_knew})
-    adv_dg_pred=replace(adv_dg, {u_linear: ubar_k})
-    incomp_dg_pred=replace(incomp_dg,{u:v_knew})
-    time_pred=replace(time,{u:v_knew})
-    time_pred=replace(time_pred,{u0:u_n})
+    #Body Force 
+    f=Function(U)
+    force_dg =dot(f,v)*dx#sign right?
 
-    eq_pred=time_pred+adv_dg_pred+pres_dg+lapl_dg_pred+force_dg+incomp_dg_pred
-    predictor=lhs(eq_pred)-rhs(eq_pred)
+    #TODO: FORMS------------------------------------------- 
+    eq=time+adv_dg+lapl_dg+force_dg+incomp_dg
+
+    #form for predictor
+    pres_dg_pred=div(v)*p_k*dx
+    eq_pred=eq+pres_dg_pred
 
     #Form for pressure correction
     w,beta = TrialFunctions(W)
-    f_pres=div(v_knew)
-    force_dg_pres=replace(force_dg,{f:f_pres})
-    incomp_dg_pres=replace(incomp_dg,{u:w})
-    pres_dg_pres=replace(pres_dg,{p:beta})
+    v_knew_sol=Function(U)
+    f_pres=div(v_knew_sol) 
+    force_dg_pres=dot(f_pres,q)*dx#sign right?
+    incomp_dg_pres=div(w)*q*dx
+    pres_dg_pres=div(v)*beta*dx
     
-    eq_pres=dot(w,v)+force_dg_pres+incomp_dg_pres+pres_dg_pres
-    pressure=lhs(eq_pres)-rhs(eq_pres)
+    eq_pres=dot(w,v)*dx+force_dg_pres+incomp_dg_pres+pres_dg_pres
 
     #Form for corrector
-    v_knew,p_knew= TrialFunctions(W)
-    pres_dg_corr=replace(pres_dg,{p:p_knew})
+    p_k_update=Function(P)
+    pres_dg_corr=div(v)*p_k_update*dx
 
-    eq_corr=time_pred+adv_dg_pred+pres_dg_corr+lapl_dg_pred+force_dg+incomp_dg_pred
-    corrector=lhs(eq_corr)-rhs(eq_corr)
+    eq_corr=eq+pres_dg_corr
 
     #TODO: LOOPS------------------------------------------------------------
 
@@ -125,47 +115,56 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         counter=0
         while(True):
 
-            #evaluate  predictor 
+            #PREDICTOR
             #build problem and solver (maybe also outside??)
+            print("....predictor solve")
             nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
             w_pred = Function(W)
-            problem = LinearVariationalProblem(a, L, w_pred, bc)
+            predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred, bc)
             solver = LinearVariationalSolver(predictor, nullspace=nullspace,solver_parameters=parameters)
             solver.solve()
             usolhat,psolhat=w_pred.split()
-            v_knew.assign(usolhat)
-
-            #evaluate pressure update
+              
+            
+            #PRESSURE UPDATE
+            print("....update solve")
+            #first modify pressure solve
+            eq_pres=replace(eq_pres,{v_knew_sol:usolhat})
             #amg as preconditioner?
             nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
             w_pres = Function(W)
-            problem = LinearVariationalProblem(a, L, w_pres, bc)
-            solver = LinearVariationalSolver(predictor, nullspace=nullspace,solver_parameters=parameters)
+            pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres, bc)
+            solver = LinearVariationalSolver(pressure, nullspace=nullspace,solver_parameters=parameters)
             solver.solve()
             wsol,betasol=w_pres.split()
-            p_knew.assign(p+betasol/dt)
+            p_knew.assign(p_old+betasol/dt)
+            v_knew.assign(Function(U).project(usolhat+grad(betasol)))
 
-            #evaluate velocity correction
+            #VELOCITY CORRECTION
+            print(".....corrector solve")
+            #first update corrector form
+            eq_corr=replace(eq_pres,{p_k_update:p_knew})
+
             nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
             w_corr = Function(W)
-            problem = LinearVariationalProblem(a, L, w_corr, bc)
-            solver = LinearVariationalSolver(predictor, nullspace=nullspace,solver_parameters=parameters)
+            corrector= LinearVariationalProblem(lhs(eq_corr),rhs(eq_corr), w_corr, bc)
+            solver = LinearVariationalSolver(corrector, nullspace=nullspace,solver_parameters=parameters)
             solver.solve()
             usol,psol=w_corr.split()
 
             #convergence criterion
             #eps=errornorm(u1,u_linear)#l2 by default
-            #counter+=1
-            #print("Picard iteration error",eps,", counter: ",counter)
+            counter+=1
+            print("Picard iteration error",eps,", counter: ",counter)
             if(eps<10**(-5)):
                 print("Picard iteration converged")  
                 break          
             else:
-                v_k.assign(u1)
+                v_k.assign(usol)
                 p.assign(psol)
 
-        un.assign(usol)
-        p.assign(psol)
+        u_n.assign(usol)
+        p_n.assign(psol)
         t += dt
             
         
@@ -200,7 +199,7 @@ print("Channel Flow")
 print("Cell number","IterationNumber")
 
 convergence=[]
-refin=range(4,9)
+refin=range(2,9)
 delta_x=[]
 for n in refin:#increasing element number
     
