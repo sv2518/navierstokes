@@ -209,7 +209,7 @@ delta_x=[]
 for n in refin:#increasing element number
     
     #solve
-    w,conv,d_x = solve_problem(n, parameters,aP=None, block_matrix=False)
+    w= solve_problem(n, parameters,aP=None, block_matrix=False)
     u,p=w.split()
     convergence.append(conv)
     delta_x.append(d_x)
