@@ -204,7 +204,7 @@ print("Channel Flow")
 print("Cell number","IterationNumber")
 
 convergence=[]
-refin=range(4,9)
+refin=range(4,5)
 delta_x=[]
 for n in refin:#increasing element number
     
