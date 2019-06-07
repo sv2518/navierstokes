@@ -8,7 +8,7 @@ def both(expr):
 
 def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #generate mesh
-    LX=200
+    LX=100
     LY=1
     mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
     
