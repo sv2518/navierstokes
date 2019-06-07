@@ -43,7 +43,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     bc.append(noslip_top)
 
     #intial values
-    p_n= Function(P).assign(Constant(1.0))#pres for init time step #??????
+    p_n= Function(P).project(x)#pres for init time step #??????
     u_n=Function(U).assign(inflow) #velo for init time step
     v_k=Function(U).assign(u_n)#init Picard value vk=un
     p_k=Function(P).assign(p_n)#init Picard value vk=un
@@ -76,7 +76,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     time=-1/Constant(dt)*inner(v_knew-u_n,v)*dx
 
     #Incompressibility
-    incomp_dg=-div(v_knew)*q*dx
+    incomp_dg=div(v_knew)*q*dx
     
     #Body Force 
     f=Function(U)
