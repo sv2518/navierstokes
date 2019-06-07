@@ -188,7 +188,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
 #
 parameters={
-    "ksp_type": "gmres",
+    "ksp_type": "fgmres",
     "ksp_converged_reason": None,
     "ksp_gmres_restart":100,
     "ksp_rtol":1e-12,
