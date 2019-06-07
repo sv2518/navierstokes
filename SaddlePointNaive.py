@@ -187,19 +187,24 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
 #
 parameters={
-    "ksp_type": "cg",
-    "ksp_converged_reason": None,
-   # "ksp_gmres_restart":100,
-    #"ksp_rtol":1e-12,
-    "pc_type":"mg",
-    #"pc_factor_mat_solver_type": "mumps",
-    #"mat_type":"aij"
+    "ksp_type": "gmres",
+    "ksp_monitor": None,
+    "pc_type": "fieldsplit",
+    "pc_fieldsplit_type": "schur",
+    "pc_fieldsplit_schur_fact_type": "lower",
+    "fieldsplit_0_ksp_type": "preonly",
+    "fieldsplit_0_pc_type": "mg",
+    "fieldsplit_1_ksp_type": "preonly",
+    "fieldsplit_1_pc_type": "python",
+    "fieldsplit_1_pc_python_type": "__main__.Mass",
+    "fieldsplit_1_aux_pc_type": "bjacobi",
+    "fieldsplit_1_aux_sub_pc_type": "icc"
     }
 print("Channel Flow")
 print("Cell number","IterationNumber")
 
 convergence=[]
-refin=range(2,9)
+refin=range(4,9)
 delta_x=[]
 for n in refin:#increasing element number
     
