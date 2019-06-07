@@ -8,11 +8,11 @@ def both(expr):
 
 def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #generate mesh
-    LX=10
+    LX=100
     LY=1
     mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
-    dt=0.1
-    T=3
+    dt=0.00001 #for lower Reynoldnumber lower dt??
+    T=0.00005
     
     #function spaces
     U = FunctionSpace(mesh, "RTCF",1)
@@ -43,7 +43,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     bc.append(noslip_top)
 
     #intial values
-    p_n= Function(P).project(x)#pres for init time step #??????
+    p_n= Function(P).project(100-x)#pres for init time step #??????
     u_n=Function(U).assign(inflow) #velo for init time step
     v_k=Function(U).assign(u_n)#init Picard value vk=un
     p_k=Function(P).assign(p_n)#init Picard value vk=un
@@ -55,15 +55,17 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #TODO: OPERATORS---------------------------------------
     #Advection operator
     un = 0.5*(dot(ubar_k, n) + abs(dot(ubar_k, n)))#conditional for upwind discretisation
-    adv_dg=-(dot(ubar_k,div(outer(v,ubar_knew)))*dx#like paper
+    adv_dg=(dot(ubar_k,div(outer(v,ubar_knew)))*dx#like paper
         -inner(v,(ubar_knew*dot(ubar_k,n)))*ds#similar to matt piggots
         -dot((v('+')-v('-')),(un('+')*ubar_knew('+') - un('-')*ubar_knew('-')))*dS)#like in the tutorial
 
     #Laplacian operator
     alpha=Constant(10.)
     gamma=Constant(10.) 
-    kappa1=nue * alpha/Constant(LX/2**mesh_size)
-    kappa2=nue * gamma/Constant(LX/2**mesh_size)
+    h=CellVolume(mesh)/FacetArea(mesh)
+    havg=avg(CellVolume(mesh))/FacetArea(mesh)
+    kappa1=nue * alpha/havg
+    kappa2=nue * gamma/h
     lapl_dg=(nue*inner(grad(ubar_knew),grad(v))*dx
         -inner(outer(v,n),nue*grad(ubar_knew))*ds 
         -inner(outer(ubar_knew,n),nue*grad(v))*ds 
@@ -73,20 +75,20 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         +kappa1*inner(both(outer(ubar_knew,n)),both(outer(v,n)))*dS)
 
     #Time derivative
-    time=-1/Constant(dt)*inner(v_knew-u_n,v)*dx
+    time=1/Constant(dt)*inner(v_knew-u_n,v)*dx
 
     #Incompressibility
     incomp_dg=div(v_knew)*q*dx
     
     #Body Force 
     f=Function(U)
-    force_dg =-dot(f,v)*dx#sign right?
+    force_dg =dot(f,v)*dx#sign right?
 
     #TODO: FORMS------------------------------------------- 
-    eq=time+adv_dg+lapl_dg+force_dg+incomp_dg
+    eq=time+adv_dg-lapl_dg-force_dg-incomp_dg
 
     #form for predictor
-    pres_dg_pred=-div(v)*p_k*dx
+    pres_dg_pred=div(v)*p_k*dx
     eq_pred=eq+pres_dg_pred
 
     #Form for pressure correction
@@ -97,7 +99,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     incomp_dg_pres=div(w)*q*dx
     pres_dg_pres=div(v)*beta*dx
     
-    eq_pres=dot(w,v)*dx+force_dg_pres+incomp_dg_pres+pres_dg_pres #dt somewhere in here??
+    eq_pres=dot(w,v)*dx-force_dg_pres+incomp_dg_pres+pres_dg_pres #dt somewhere in here??
 
     #Form for corrector
     p_k_update=Function(P)
@@ -111,7 +113,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     t = 0.0
     while t < T - 0.5*dt:
         
-        #innerloop for progressing Picard iteration 
+        #innerloop for progressing Picard iteration DO WE NEED THIS?
         counter=0
         while(True):
 
@@ -119,30 +121,39 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             #build problem and solver (maybe also outside??)
             print("\n....predictor solve\n")
             w_pred = Function(W)
-            predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred, [noslip_bottom,noslip_top])
+            predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred,bc)
             solver = LinearVariationalSolver(predictor, solver_parameters=parameters)
             solver.solve()
             usolhat,psolhat=w_pred.split()
               
+            plot(usolhat)
+            plt.title("Velocity")
+            plt.xlabel("x")
+            plt.ylabel("y")
+            plt.show()
+            plot(psolhat)
+            plt.title("Pressure")
+            plt.xlabel("x")
+            plt.ylabel("y")
+            plt.show()
             
             #PRESSURE UPDATE
             print("\n....update solve\n")
             #first modify pressure solve
-            eq_pres=replace(eq_pres,{v_knew_sol:usolhat})
+            v_knew_sol.assign(usolhat)
             #amg as preconditioner?
-            nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
             w_pres = Function(W)
-            pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres, [noslip_bottom,noslip_top])
-            solver = LinearVariationalSolver(pressure, nullspace=nullspace,solver_parameters=parameters)
+            pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres, bc)
+            solver = LinearVariationalSolver(pressure, solver_parameters=parameters)
             solver.solve()
             wsol,betasol=w_pres.split()
             p_knew=Function(P).project(p_n+betasol/dt)
-            v_knew=Function(U).project(usolhat+grad(betasol))
+            #v_knew=Function(U).project(usolhat+grad(betasol))
 
             #VELOCITY CORRECTION
             print("\n.....corrector solve\ns")
             #first update corrector form
-            eq_corr=replace(eq_pres,{p_k_update:p_knew})
+            p_k_update.assign(p_knew)
 
             nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
             w_corr = Function(W)
@@ -150,6 +161,17 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             solver = LinearVariationalSolver(corrector, nullspace=nullspace,solver_parameters=parameters)
             solver.solve()
             usol,psol=w_corr.split()
+
+            plot(usol)
+            plt.title("Velocity")
+            plt.xlabel("x")
+            plt.ylabel("y")
+            plt.show()
+            plot(psol)
+            plt.title("Pressure")
+            plt.xlabel("x")
+            plt.ylabel("y")
+            plt.show()
 
             #convergence criterion
             #eps=errornorm(u1,u_linear)#l2 by default
@@ -165,7 +187,17 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         u_n.assign(usol)
         p_n.assign(psol)
         t += dt
-            
+        
+        plot(u_n)
+        plt.title("Velocity")
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.show()
+        plot(p_n)
+        plt.title("Pressure")
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.show()
         
 
         
