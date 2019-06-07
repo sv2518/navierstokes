@@ -195,11 +195,7 @@ parameters={
     "pc_type":"lu",
     "pc_factor_mat_solver_type": "mumps",
     "mat_type":"aij",
-    'snes_monitor': None,
-    'snes_view': None,
-    'ksp_monitor_true_residual': None,
-    'snes_converged_reason': None,
-    'ksp_converged_reason': None
+    'snes_type': "test"
     }
 print("Channel Flow")
 print("Cell number","IterationNumber")
