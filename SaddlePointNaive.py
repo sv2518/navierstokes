@@ -160,7 +160,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
                 break          
             else:
                 v_k.assign(usol)
-                p.assign(psol)
+                p_k.assign(psol)
 
         u_n.assign(usol)
         p_n.assign(psol)
