@@ -12,7 +12,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     LY=1
     mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
     dt=0.1
-    T=0.5
+    T=3
     
     #function spaces
     U = FunctionSpace(mesh, "RTCF",1)
