@@ -118,10 +118,9 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             #PREDICTOR
             #build problem and solver (maybe also outside??)
             print("....predictor solve")
-            nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
             w_pred = Function(W)
-            predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred, bc)
-            solver = LinearVariationalSolver(predictor, nullspace=nullspace,solver_parameters=parameters)
+            predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred, [noslip_bottom,noslip_top])
+            solver = LinearVariationalSolver(predictor, solver_parameters=parameters)
             solver.solve()
             usolhat,psolhat=w_pred.split()
               
