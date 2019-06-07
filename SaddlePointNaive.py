@@ -183,7 +183,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
     #conv=max(abs(assemble(action(a-L-action(a,test),test),bcs=bc_1).dat.data[0]))
     #d_x=LX/2**mesh_size
-    return w#,conv,d_x
+    return w_corr#,conv,d_x
 
 #
 parameters={
