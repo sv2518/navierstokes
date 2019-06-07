@@ -73,7 +73,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         +kappa1*inner(both(outer(ubar_knew,n)),both(outer(v,n)))*dS)
 
     #Time derivative
-    time=1/Constant(dt)*inner(v_knew-u_n,v)*dx
+    time=Constant(dt)*inner(v_knew-u_n,v)*dx
 
     #Incompressibility
     incomp_dg=div(v_knew)*q*dx
