@@ -11,7 +11,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     LX=100
     LY=1
     mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
-    dt=0.5
+    dt=0.01
     T=5
     
     #function spaces
@@ -73,7 +73,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         +kappa1*inner(both(outer(ubar_knew,n)),both(outer(v,n)))*dS)
 
     #Time derivative
-    time=Constant(dt)*inner(v_knew-u_n,v)*dx
+    time=1/Constant(dt)*inner(v_knew-u_n,v)*dx
 
     #Incompressibility
     incomp_dg=div(v_knew)*q*dx
@@ -192,7 +192,7 @@ parameters={
     "ksp_converged_reason": None,
     "ksp_gmres_restart":100,
     "ksp_rtol":1e-12,
-    "pc_type":"ilu",
+    "pc_type":"lu",
     "pc_factor_mat_solver_type": "mumps",
     "mat_type":"aij",
     'snes_monitor': None,
