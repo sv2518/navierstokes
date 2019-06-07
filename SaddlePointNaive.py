@@ -136,7 +136,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             solver = LinearVariationalSolver(pressure, nullspace=nullspace,solver_parameters=parameters)
             solver.solve()
             wsol,betasol=w_pres.split()
-            p_knew=Function(P).project(p_old+betasol/dt)
+            p_knew=Function(P).project(p_n+betasol/dt)
             v_knew=Function(U).project(usolhat+grad(betasol))
 
             #VELOCITY CORRECTION
