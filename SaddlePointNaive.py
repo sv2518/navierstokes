@@ -56,7 +56,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #Advection operator
     un = 0.5*(dot(ubar_k, n) + abs(dot(ubar_k, n)))#conditional for upwind discretisation
     adv_dg=-(dot(ubar_k,div(outer(v,ubar_knew)))*dx#like paper
-        -inner(v,(u*dot(ubar_k,n)))*ds#similar to matt piggots
+        -inner(v,(ubar_knew*dot(ubar_k,n)))*ds#similar to matt piggots
         -dot((v('+')-v('-')),(un('+')*ubar_knew('+') - un('-')*ubar_knew('-')))*dS)#like in the tutorial
 
     #Laplacian operator
