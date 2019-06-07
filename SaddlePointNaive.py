@@ -11,8 +11,8 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     LX=100
     LY=1
     mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
-    dt=0.01
-    T=5
+    dt=0.1
+    T=1
     
     #function spaces
     U = FunctionSpace(mesh, "RTCF",1)
@@ -155,7 +155,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             #eps=errornorm(u1,u_linear)#l2 by default
             counter+=1
             print("Picard iteration error",counter,", counter: ",counter)
-            if(counter>(5)):
+            if(counter>(0)):
                 print("Picard iteration converged")  
                 break          
             else:
