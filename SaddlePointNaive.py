@@ -155,7 +155,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             #eps=errornorm(u1,u_linear)#l2 by default
             counter+=1
             print("Picard iteration error",eps,", counter: ",counter)
-            if(eps<10**(-5)):
+            if(counter<(5)):
                 print("Picard iteration converged")  
                 break          
             else:
