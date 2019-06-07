@@ -117,7 +117,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
             #PREDICTOR
             #build problem and solver (maybe also outside??)
-            print("....predictor solve")
+            print("\n....predictor solve\n")
             w_pred = Function(W)
             predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred, [noslip_bottom,noslip_top])
             solver = LinearVariationalSolver(predictor, solver_parameters=parameters)
@@ -126,7 +126,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
               
             
             #PRESSURE UPDATE
-            print("....update solve")
+            print("\n....update solve\n")
             #first modify pressure solve
             eq_pres=replace(eq_pres,{v_knew_sol:usolhat})
             #amg as preconditioner?
@@ -136,11 +136,11 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             solver = LinearVariationalSolver(pressure, nullspace=nullspace,solver_parameters=parameters)
             solver.solve()
             wsol,betasol=w_pres.split()
-            p_knew.assign(p_old+betasol/dt)
-            v_knew.assign(Function(U).project(usolhat+grad(betasol)))
+            p_knew=Function(P).project(p_old+betasol/dt)
+            v_knew=Function(U).project(usolhat+grad(betasol))
 
             #VELOCITY CORRECTION
-            print(".....corrector solve")
+            print("\n.....corrector solve\ns")
             #first update corrector form
             eq_corr=replace(eq_pres,{p_k_update:p_knew})
 
