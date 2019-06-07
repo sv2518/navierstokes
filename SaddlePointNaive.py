@@ -211,8 +211,8 @@ for n in refin:#increasing element number
     #solve
     w= solve_problem(n, parameters,aP=None, block_matrix=False)
     u,p=w.split()
-    convergence.append(conv)
-    delta_x.append(d_x)
+    #convergence.append(conv)
+    #delta_x.append(d_x)
 
     
     #plot solutions
@@ -238,14 +238,14 @@ for n in refin:#increasing element number
     except:
         warning("Cannot show figure")
 
-print("max error in velocity",convergence)
+#print("max error in velocity",convergence)
 
 #convergence plot
-fig = plt.figure()
-axis = fig.gca()
-linear=convergence
-axis.loglog(refin,linear)
-axis.plot(refin,refin[::-1],'r*')
-axis.set_xlabel('$Level$')
-axis.set_ylabel('$||e||_{\infty}$')
-plt.show()
+#fig = plt.figure()
+#axis = fig.gca()
+#linear=convergence
+#axis.loglog(refin,linear)
+#axis.plot(refin,refin[::-1],'r*')
+#axis.set_xlabel('$Level$')
+#axis.set_ylabel('$||e||_{\infty}$')
+#plt.show()
