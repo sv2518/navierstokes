@@ -188,13 +188,13 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
 #
 parameters={
-    "ksp_type": "fgmres",
+    "ksp_type": "cg",
     "ksp_converged_reason": None,
-    "ksp_gmres_restart":100,
-    "ksp_rtol":1e-12,
-    "pc_type":"lu",
-    "pc_factor_mat_solver_type": "mumps",
-    "mat_type":"aij"
+   # "ksp_gmres_restart":100,
+    #"ksp_rtol":1e-12,
+    "pc_type":"mg",
+    #"pc_factor_mat_solver_type": "mumps",
+    #"mat_type":"aij"
     }
 print("Channel Flow")
 print("Cell number","IterationNumber")
