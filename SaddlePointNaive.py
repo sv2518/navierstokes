@@ -97,7 +97,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     incomp_dg_pres=div(w)*q*dx
     pres_dg_pres=div(v)*beta*dx
     
-    eq_pres=dot(w,v)*dx+force_dg_pres+incomp_dg_pres+pres_dg_pres
+    eq_pres=dot(w,v)*dx+force_dg_pres+incomp_dg_pres+pres_dg_pres #dt somewhere in here??
 
     #Form for corrector
     p_k_update=Function(P)
@@ -133,7 +133,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             #amg as preconditioner?
             nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
             w_pres = Function(W)
-            pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres, bc)
+            pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres, [bc1,bc2])
             solver = LinearVariationalSolver(pressure, nullspace=nullspace,solver_parameters=parameters)
             solver.solve()
             wsol,betasol=w_pres.split()
