@@ -1,7 +1,6 @@
 from firedrake import *
 import numpy as np
 import matplotlib.pyplot as plt
-
 def both(expr):
     return expr('+') + expr('-')
 
@@ -10,16 +9,23 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #generate mesh
     LX=100
     LY=1
+    #mesh = Mesh("cylinder.msh")
     mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
-    dt_max=0.001
-    dt=0.001 #for lower Reynoldnumber lower dt??
-    T=0.005
+    #mesh.coordinates.dat.data-=mesh.coordinates.dat.data[15:25,0]
+    #mesh.coordinates.dat.data[1:2,1]-=mesh.coordinates.dat.data[1:2,0]
+
+    dt_max=0.000001
+    dt=0.000001 #for lower Reynoldnumber lower dt??
+    T=0.000005
     theta=0.25
     
     #function spaces
     U = FunctionSpace(mesh, "RTCF",1)
     P = FunctionSpace(mesh, "DG", 0)
     W = U*P
+
+    plt.plot(mesh)
+    plt.show()
 
     #functions
     u,p = TrialFunctions(W)
@@ -33,12 +39,18 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #specify inflow/initial solution
     x,y=SpatialCoordinate(mesh)
     t=0.0
-    inflow=Function(U).project(as_vector((-sin(3.0*(1-t))*(y-1)*(y),0.0*y)))#changed to time dependent
-    inflow_uniform=Function(U).project(Constant((1.0,0.0)))  
+    inflow_expr=as_vector((-cos(300000*t)*(y-1)*(y),0.0*y))
+    inflow=Function(U).project(inflow_expr)#changed to time dependent
+   # inflow_uniform=Function(U).project(Constant((1.0,0.0)))  
+    
+    #time dependent pressure inflow
+ #   t=0
+  #  p_in=Function(P).project(Constant(sin(3*t)))
+  #  infl=DirichletBC(W.sub(1),p_in,1)#plane x=0
 
     #boundary conditions
     bc=[]
-    infl=DirichletBC(W.sub(0),inflow,1)#plane x=0
+    infl=DirichletBC(W.sub(0),inflow,1)
     bc.append(infl)
     noslip_bottom=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
     bc.append(noslip_bottom)
@@ -46,7 +58,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     bc.append(noslip_top)
 
     #intial values
-    p_n= Function(P).project(Constant(0))#pres for init time step #??????
+    p_n= Function(P).assign(Constant(100.0))#pres for init time step #??????
     u_n=Function(U).assign(inflow) #velo for init time step
     v_k=Function(U).assign(u_n)#init Picard value vk=un
     p_k=Function(P).assign(p_n)#init Picard value vk=un
@@ -102,22 +114,24 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     incomp_dg_pres=div(w)*q*dx
     pres_dg_pres=div(v)*beta*dx
     
-    eq_pres=dot(w,v)*dx+force_dg_pres+1/dt*incomp_dg_pres+pres_dg_pres #dt somewhere in here??
+    eq_pres=dot(w,v)*dx+force_dg_pres+1/dt*incomp_dg_pres-pres_dg_pres #dt somewhere in here??
 
     #Form for corrector
     p_k_update=Function(P)
     pres_dg_corr=div(v)*p_k_update*dx
 
-    eq_corr=eq+pres_dg_corr
+    eq_corr=eq+dt*pres_dg_corr
 
     #TODO: LOOPS------------------------------------------------------------
 
     #outerloop for time progress
-    t = 0.0
+    t = dt
     while t < T :
-        
-        inflow.t=t
 
+        inflow_expr=as_vector((-cos(3*t)*(y-1)*(y),0.0*y))
+        inflow=Function(U).project(inflow_expr)#changed to time dependent
+        infl=DirichletBC(W.sub(0),inflow,1)
+        
         #innerloop for progressing Picard iteration DO WE NEED THIS?
         counter=0
         dt=theta*dt_max
@@ -127,24 +141,18 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             #build problem and solver (maybe also outside??)
             print("\n....predictor solve\n")
             w_pred = Function(W)
-            predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred,[noslip_bottom,noslip_top])
+            predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred,[infl,noslip_bottom,noslip_top])
             solver = LinearVariationalSolver(predictor, solver_parameters=parameters)
             solver.solve()
             usolhat,psolhat=w_pred.split()
-              
-          #  plot(psolhat)
-          #  plt.title("Pressure")
-          ##  plt.xlabel("x")
-          #  plt.ylabel("y")
-          #  plt.show()
 
             #convergence criterion
             eps=errornorm(v_k,usolhat)#l2 by default
             v_k.assign(usolhat)
-            p_k.assign(psolhat)
+            p_k.assign(p_n)
             counter+=1
             print("Picard iteration error",eps,", counter: ",counter)
-            if(counter>dt_max/dt):
+            if(counter>dt_max/dt-1):
                 print("Picard iteration converged")  
                 break          
             
@@ -156,12 +164,14 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         v_knew_hat.assign(v_k)
         #amg as preconditioner?
         w_pres = Function(W)
-        pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres,[infl,DirichletBC(W.sub(1),Constant((0.0)),2)])#BC RIGHT???
-        solver = LinearVariationalSolver(pressure, solver_parameters=parameters)
+        nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
+        pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres,[infl,noslip_bottom,noslip_top,DirichletBC(W.sub(1),Constant(0.0),2)])#BC RIGHT???
+        solver = LinearVariationalSolver(pressure,solver_parameters=parameters)
         solver.solve()
         wsol,betasol=w_pres.split()
         print(assemble(betasol).dat.data)
-        p_knew=Function(P).project(p_k+betasol/dt)
+        p_knew=Function(P).project(p_n+betasol/dt)
+
         #v_knew=Function(U).project(usolhat+grad(betasol))
 
         #VELOCITY CORRECTION
@@ -170,16 +180,16 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         p_k_update.assign(p_knew)
         #v_k already updated
         w_corr = Function(W)
-        corrector= LinearVariationalProblem(lhs(eq_corr),rhs(eq_corr), w_corr, [noslip_bottom,noslip_top])
+        corrector= LinearVariationalProblem(lhs(eq_corr),rhs(eq_corr), w_corr,[infl,noslip_bottom,noslip_top])
         solver = LinearVariationalSolver(corrector, solver_parameters=parameters)
         solver.solve()
         usol,psol=w_corr.split()
 
-       # plot(usol)
-       # plt.title("Velocity")
-       # plt.xlabel("x")
-      #  plt.ylabel("y")
-       # plt.show()
+        plot(usol)
+        plt.title("Velocity")
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.show()
         plot(p_knew)
         plt.title("Pressure")
         plt.xlabel("x")
@@ -209,7 +219,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 #
 parameters={    
     "ksp_type": "gmres",
-    "ksp_rtol": 1e-8,
+    "ksp_rtol": 1e-12,
     "pc_type": "fieldsplit",
     "pc_fieldsplit_type": "schur",
     "pc_fieldsplit_schur_fact_type": "full",
