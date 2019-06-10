@@ -9,24 +9,21 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #generate mesh
     LX=100
     LY=1
-    #mesh = Mesh("cylinder.msh")
-    mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
+    mesh = Mesh("cylinder-5.msh")
+    #mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
     #mesh.coordinates.dat.data-=mesh.coordinates.dat.data[15:25,0]
     #mesh.coordinates.dat.data[1:2,1]-=mesh.coordinates.dat.data[1:2,0]
 
-    dt_max=0.000001
-    dt=0.000001 #for lower Reynoldnumber lower dt??
-    T=0.000005
-    theta=0.25
+    dt_max=0.00005
+    dt=0.00005 #for lower Reynoldnumber lower dt??
+    T=0.0001
+    theta=1
     
     #function spaces
-    U = FunctionSpace(mesh, "RTCF",1)
+    U = FunctionSpace(mesh, "RT",1)
     P = FunctionSpace(mesh, "DG", 0)
     W = U*P
-
-    plt.plot(mesh)
-    plt.show()
-
+    
     #functions
     u,p = TrialFunctions(W)
     v,q = TestFunctions(W)
@@ -34,12 +31,19 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #normal and essentially reynolds number
     n=FacetNormal(W.mesh())
-    nue=Constant(0.01)
+    nue=Constant(0.02)
 
     #specify inflow/initial solution
     x,y=SpatialCoordinate(mesh)
     t=0.0
-    inflow_expr=as_vector((-cos(300000*t)*(y-1)*(y),0.0*y))
+    Um = 1.5
+    H = 0.41
+
+    # Constant parabolic inflow
+    # Max inflow is (1.5, 0)
+    x, y = SpatialCoordinate(mesh)
+    inflow_expr = as_vector([-4*Um*y*(y-H), 0*y])
+
     inflow=Function(U).project(inflow_expr)#changed to time dependent
    # inflow_uniform=Function(U).project(Constant((1.0,0.0)))  
     
@@ -50,12 +54,12 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
     #boundary conditions
     bc=[]
-    infl=DirichletBC(W.sub(0),inflow,1)
+    infl=DirichletBC(W.sub(0),inflow,2)
     bc.append(infl)
-    noslip_bottom=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
-    bc.append(noslip_bottom)
-    noslip_top=DirichletBC(W.sub(0),Constant((0.0,0.0)),4)#plane y=L
-    bc.append(noslip_top)
+    noslip=DirichletBC(W.sub(0),Constant((0.0,0.0)),1)#plane y=0
+    bc.append(noslip)
+
+    outfl=DirichletBC(W.sub(1),Constant(0.0),3)
 
     #intial values
     p_n= Function(P).assign(Constant(100.0))#pres for init time step #??????
@@ -128,9 +132,10 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     t = dt
     while t < T :
 
-        inflow_expr=as_vector((-cos(3*t)*(y-1)*(y),0.0*y))
-        inflow=Function(U).project(inflow_expr)#changed to time dependent
-        infl=DirichletBC(W.sub(0),inflow,1)
+        #for time dependent inflow
+       # inflow_expr=as_vector((-100*(y-1)*(y),0.0*y))
+       # inflow=Function(U).project(inflow_expr)#changed to time dependent
+       # infl=DirichletBC(W.sub(0),inflow,2)
         
         #innerloop for progressing Picard iteration DO WE NEED THIS?
         counter=0
@@ -141,7 +146,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             #build problem and solver (maybe also outside??)
             print("\n....predictor solve\n")
             w_pred = Function(W)
-            predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred,[infl,noslip_bottom,noslip_top])
+            predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred,[infl,noslip])
             solver = LinearVariationalSolver(predictor, solver_parameters=parameters)
             solver.solve()
             usolhat,psolhat=w_pred.split()
@@ -165,7 +170,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         #amg as preconditioner?
         w_pres = Function(W)
         nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
-        pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres,[infl,noslip_bottom,noslip_top,DirichletBC(W.sub(1),Constant(0.0),2)])#BC RIGHT???
+        pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres,[infl,noslip,outfl])#BC RIGHT???
         solver = LinearVariationalSolver(pressure,solver_parameters=parameters)
         solver.solve()
         wsol,betasol=w_pres.split()
@@ -180,7 +185,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         p_k_update.assign(p_knew)
         #v_k already updated
         w_corr = Function(W)
-        corrector= LinearVariationalProblem(lhs(eq_corr),rhs(eq_corr), w_corr,[infl,noslip_bottom,noslip_top])
+        corrector= LinearVariationalProblem(lhs(eq_corr),rhs(eq_corr), w_corr,[infl,noslip])
         solver = LinearVariationalSolver(corrector, solver_parameters=parameters)
         solver.solve()
         usol,psol=w_corr.split()
@@ -198,13 +203,8 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
         u_n.assign(usol)
         p_n.assign(p_knew)
-        t += dt
-        
-        
 
-        
-
-        
+        t += dt      
 
     sol=Function(W)
     sol.sub(0).assign(u_n)
@@ -219,7 +219,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 #
 parameters={    
     "ksp_type": "gmres",
-    "ksp_rtol": 1e-12,
+    "ksp_rtol": 1e-8,
     "pc_type": "fieldsplit",
     "pc_fieldsplit_type": "schur",
     "pc_fieldsplit_schur_fact_type": "full",
@@ -233,7 +233,7 @@ print("Channel Flow")
 print("Cell number","IterationNumber")
 
 convergence=[]
-refin=range(6,7)
+refin=range(4,5)
 delta_x=[]
 for n in refin:#increasing element number
     
