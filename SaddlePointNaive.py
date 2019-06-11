@@ -151,6 +151,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             break          
         else:
             u_linear.assign(u1)
+            #one comp has to be set to 0?
 
 
     # plot error fields
