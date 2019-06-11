@@ -100,7 +100,8 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         eq = a_dg+Constant(-1.)*adv_dg-div(v)*p*dx-div(u)*q*dx
 
         #MMS
-        strongform1=Function(U).project(div(grad(u_exact))-grad(dot(u_exact,u_exact))-0.5*dot(u_exact,grad(u_exact))-grad(p_exact))
+        #skew symmetric form of advection: https://www.sciencedirect.com/science/article/pii/0168927491901026?via%3Dihub
+        strongform1=Function(U).project(div(grad(u_exact))-0.5*grad(dot(u_exact,u_exact))-0.5*dot(u_exact,grad(u_exact))-grad(p_exact))
         strongform2=Function(P).project(div(u_exact))
 
         #->plot corrector force
