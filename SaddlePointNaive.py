@@ -44,18 +44,11 @@ def plot_convergence_velo_pres(error_velo,error_pres,list_N):
 
 def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #generate mesh
-<<<<<<< HEAD
     LX=2.0
     LY=2.0
     mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
     mesh.coordinates.dat.data[:,0]-=0.5
 
-=======
-    LX=100
-    LY=1
-    mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
-    
->>>>>>> quadrilateralsWithAdvectionAndPicard
     #function spaces
     U = FunctionSpace(mesh, "RTCF",1)
     P = FunctionSpace(mesh, "DG", 0)
@@ -72,7 +65,6 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
     #specify inflow/solution
     x,y=SpatialCoordinate(mesh)
-<<<<<<< HEAD
     lam=(-8.*pi**2/(nue**(-1)+sqrt(nue**(-2)+16*pi**2)))
     ux=1-exp(lam*x)*cos(2*pi*y)
     uy=lam/(2*pi)*exp(lam*x)*sin(2*pi*y)
@@ -81,13 +73,6 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     inflow=Function(U).project(as_vector((ux,0.0)))
     #inflow_uniform=Function(U).project(Constant((1.0,0.0)))  
     
-=======
-    u_exact=as_vector((-0.5*(y-1)*y,0.0*y))
-    p_exact=LX-x#factor of pressure gradient is double of factor of velocity
-
-    inflow=Function(U).project(u_exact)
-
->>>>>>> quadrilateralsWithAdvectionAndPicard
     #Picard iteration
     u_linear=Function(U).assign(inflow)
     counter=0
@@ -96,19 +81,14 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         #Laplacian
         alpha=Constant(10.)
         gamma=Constant(10.) 
-<<<<<<< HEAD
-        kappa1=nue * alpha/Constant(LY/2**mesh_size)#??????
-        kappa2=nue * gamma/Constant(LY/2**mesh_size)#???????
-
-        g=Function(U).project(as_vector((0.0,uy))) #tangential comp
-        #g=Constant((0.0,0.0))
-=======
         h=CellVolume(mesh)/FacetArea(mesh)
         havg=avg(CellVolume(mesh))/FacetArea(mesh)
         kappa1=nue*alpha/havg
         kappa2=nue*gamma/h
 
->>>>>>> quadrilateralsWithAdvectionAndPicard
+        g=Function(U).project(as_vector((0.0,uy))) #tangential comp
+        #g=Constant((0.0,0.0))
+
         a_dg=(nue*inner(grad(u),grad(v))*dx
             -inner(outer(v,n),nue*grad(u))*ds 
             -inner(outer(u-g,n),nue*grad(v))*ds 
@@ -166,12 +146,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         w = Function(W)
         #nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
         problem = LinearVariationalProblem(a, L, w, bc_1)
-<<<<<<< HEAD
         solver = LinearVariationalSolver(problem, nullspace=nullspace,solver_parameters=parameters)
-=======
-        appctx = {"Re": 1, "velocity_space": 0}
-        solver = LinearVariationalSolver(problem, solver_parameters=parameters,appctx=appctx)
->>>>>>> quadrilateralsWithAdvectionAndPicard
         solver.solve()
         u1,p1=w.split()
 
@@ -185,23 +160,6 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         else:
             u_linear.assign(u1)
 
-<<<<<<< HEAD
-    #method of manufactured solutions
-    test=Function(W)
-    test.sub(0).assign(u_sol)
-    test.sub(1).assign(p_sol)
-    plt.plot((assemble(action(a-L,test),bcs=bc_1).dat.data[0]))
-    plt.show()
-
-    print("velo error",errornorm(u_sol,u1,norm_type="Hdiv"),", pres error: ",errornorm(p1,p_sol,norm_type="L2"))
-    divtest=Function(P)
-    divtest.assign(project(div(u1),P))
-    print("div error",errornorm(u_sol,Function(U),norm_type="L2"))
-    return w
-
-
-#
-=======
 
     # plot error fields
     #plot_velo_pres(Function(U).project(u1-u_exact),Function(P).project(p1-p_exact),"Error")
@@ -222,7 +180,6 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     return w,err_u,err_p,N
 
 #####################MAIN##########################
->>>>>>> quadrilateralsWithAdvectionAndPicard
 parameters={
    # "ksp_type": "fgmres",
    # "ksp_rtol": 1e-8,
@@ -242,13 +199,6 @@ parameters={
     "ksp_rtol":1e-12,
     "pc_type":"lu",
     "pc_factor_mat_solver_type": "mumps",
-<<<<<<< HEAD
-    "mat_type":"aij"}
-print("Channel Flow")
-print("Cell number","IterationNumber")
-
-for n in range(4,8):#increasing element number
-=======
     "mat_type":"aij"
 }
 
@@ -257,7 +207,6 @@ error_pres=[]
 refin=range(3,9)
 list_N=[]
 for n in refin:#increasing element number
->>>>>>> quadrilateralsWithAdvectionAndPicard
     
     #solve
     w,err_u,err_p,N = solve_problem(n, parameters,aP=None, block_matrix=False)
