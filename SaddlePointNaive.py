@@ -7,17 +7,18 @@ def both(expr):
 
 def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #generate mesh
-    LX=100
+    LX=2
     LY=1
+   # mesh = Mesh("cylinder_lawrence.msh")
     mesh = Mesh("cylinder-5.msh")
     #mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
     #mesh.coordinates.dat.data-=mesh.coordinates.dat.data[15:25,0]
     #mesh.coordinates.dat.data[1:2,1]-=mesh.coordinates.dat.data[1:2,0]
 
-    dt_max=0.00005
-    dt=0.00005 #for lower Reynoldnumber lower dt??
-    T=0.0001
-    theta=1
+    dt_max=0.00001
+    dt=0.00001 #for lower Reynoldnumber lower dt??
+    T=0.00003
+    theta=0.25
     
     #function spaces
     U = FunctionSpace(mesh, "RT",1)
@@ -62,7 +63,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     outfl=DirichletBC(W.sub(1),Constant(0.0),3)
 
     #intial values
-    p_n= Function(P).assign(Constant(100.0))#pres for init time step #??????
+    p_n= Function(P).project(-8*Um*(2-x))#pres for init time step #??????
     u_n=Function(U).assign(inflow) #velo for init time step
     v_k=Function(U).assign(u_n)#init Picard value vk=un
     p_k=Function(P).assign(p_n)#init Picard value vk=un
@@ -151,10 +152,13 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             solver.solve()
             usolhat,psolhat=w_pred.split()
 
+           # plot(psolhat)
+           # plt.show()
+
             #convergence criterion
             eps=errornorm(v_k,usolhat)#l2 by default
             v_k.assign(usolhat)
-            p_k.assign(p_n)
+            p_k.assign(p_n)#or psolhat???????????
             counter+=1
             print("Picard iteration error",eps,", counter: ",counter)
             if(counter>dt_max/dt-1):
@@ -166,16 +170,16 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         #PRESSURE UPDATE
         print("\n....update solve\n")
         #first modify pressure solve
-        v_knew_hat.assign(v_k)
+        eq_pres_new=replace(eq_pres,{v_knew_hat:v_k})
         #amg as preconditioner?
         w_pres = Function(W)
         nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
-        pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres,[infl,noslip,outfl])#BC RIGHT???
+        pressure= LinearVariationalProblem(lhs(eq_pres_new),rhs(eq_pres_new),w_pres,[infl,noslip,outfl])#BC RIGHT???
         solver = LinearVariationalSolver(pressure,solver_parameters=parameters)
         solver.solve()
         wsol,betasol=w_pres.split()
         print(assemble(betasol).dat.data)
-        p_knew=Function(P).project(p_n+betasol/dt)
+        p_knew=Function(P).project(p_n+betasol/dt)#or pk??????????
 
         #v_knew=Function(U).project(usolhat+grad(betasol))
 
@@ -194,12 +198,12 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         plt.title("Velocity")
         plt.xlabel("x")
         plt.ylabel("y")
-        plt.show()
+       # plt.show()
         plot(p_knew)
         plt.title("Pressure")
         plt.xlabel("x")
         plt.ylabel("y")
-        plt.show()
+        #plt.show()
 
         u_n.assign(usol)
         p_n.assign(p_knew)
@@ -214,9 +218,9 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     divtest.project(div(u_n))
     print("Div error",errornorm(divtest,Function(P)))
 
-    return sol#,conv,d_x
+    return sol
 
-#
+#########################################################################
 parameters={    
     "ksp_type": "gmres",
     "ksp_rtol": 1e-8,
@@ -229,19 +233,13 @@ parameters={
     "pc_fieldsplit_schur_precondition": "selfp",
     "fieldsplit_1_pc_type": "hypre"
     }
-print("Channel Flow")
-print("Cell number","IterationNumber")
 
-convergence=[]
 refin=range(4,5)
-delta_x=[]
 for n in refin:#increasing element number
     
     #solve
     sol= solve_problem(n, parameters,aP=None, block_matrix=False)
     u,p=sol.split()
-    #convergence.append(conv)
-    #delta_x.append(d_x)
 
     
     #plot solutions
@@ -266,15 +264,3 @@ for n in refin:#increasing element number
         plt.show()
     except:
         warning("Cannot show figure")
-
-#print("max error in velocity",convergence)
-
-#convergence plot
-#fig = plt.figure()
-#axis = fig.gca()
-#linear=convergence
-#axis.loglog(refin,linear)
-#axis.plot(refin,refin[::-1],'r*')
-#axis.set_xlabel('$Level$')
-#axis.set_ylabel('$||e||_{\infty}$')
-#plt.show()
