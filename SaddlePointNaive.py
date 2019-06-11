@@ -5,6 +5,42 @@ import matplotlib.pyplot as plt
 def both(expr):
     return expr('+') + expr('-')
 
+def plot_velo_pres(u,p,title):
+    plot(u)
+    plt.title(str(title+" Velocity"))
+    plt.xlabel("x")
+    plt.ylabel("y")
+    plt.show()
+    plot(p)
+    plt.title(str(title+" Pressure"))
+    plt.xlabel("x")
+    plt.ylabel("y")
+    plt.show()
+
+def plot_convergence_velo_pres(error_velo,error_pres,list_N):
+    # velocity convergence plot
+    fig = plt.figure()
+    axis = fig.gca()
+    linear=error_velo[::-1]
+    axis.loglog(list_N,linear,label='$||e_u||_{\infty}$')
+    axis.loglog(list_N,0.001*np.power(list_N,2),'r*',label="second order")
+    axis.loglog(list_N,0.001*np.power(list_N,1),'g*',label="first order")
+    axis.set_xlabel('$2**Level$')
+    axis.set_ylabel('$Error$')
+    axis.legend()
+    plt.show()
+
+    #pressure convergence plot
+    fig = plt.figure()
+    axis = fig.gca()
+    linear=error_pres[::-1]
+    axis.loglog(list_N,linear,label='$||e_p||_{\infty}$')
+    axis.loglog(list_N,0.1*np.power(list_N,2),'r*',label="second order")
+    axis.loglog(list_N,0.1*np.power(list_N,1),'g*',label="first order")
+    axis.set_xlabel('$2**Level$')
+    axis.set_ylabel('$Error$')
+    axis.legend()
+    plt.show()
 
 def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #generate mesh
@@ -24,12 +60,12 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #building the operators
     n=FacetNormal(W.mesh())
-    nue=Constant(1.)#viscosity
+    nue=Constant(0.1)#viscosity
 
     #specify inflow/initial solution
     x,y=SpatialCoordinate(mesh)
     u_exact=as_vector((-0.5*(y-1)*y,0.0*y))
-    p_exact=-1*(x-LX)
+    p_exact=LX-x#factor of pressure gradient is double of factor of velocity
 
     inflow=Function(U).project(u_exact)
 
@@ -61,12 +97,18 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             -dot((v('+')-v('-')),(un('+')*u('+') - un('-')*u('-')))*dS)#like in the tutorial
     
         #form
-        eq = a_dg+Constant(-1.)*adv_dg-div(v)*p*dx+div(u)*q*dx
+        eq = a_dg+Constant(-1.)*adv_dg-div(v)*p*dx-div(u)*q*dx
 
-        #method of manufactured solutions
-        strongform1=Function(U).project(div(grad(u_exact))-dot(u_exact,grad(u_exact))-grad(p_exact)+f)
+        #MMS
+        strongform1=Function(U).project(div(grad(u_exact))-grad(dot(u_exact,u_exact))-0.5*dot(u_exact,grad(u_exact))-grad(p_exact))
         strongform2=Function(P).project(div(u_exact))
-        eq -=(dot(strongform1,v)*dx+dot(strongform2,q)*dx)
+
+        #->plot corrector force
+        #plot_velo_pres(strongform1,strongform2,"Corrector Force")
+
+        #->manufacture equations
+        f=dot(strongform1,v)*dx+dot(strongform2,q)*dx
+        eq +=f
         a=lhs(eq)
         L=rhs(eq)
 
@@ -89,8 +131,10 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
         #build problem and solver
         w = Function(W)
+        #nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
         problem = LinearVariationalProblem(a, L, w, bc_1)
-        solver = LinearVariationalSolver(problem, solver_parameters=parameters)
+        appctx = {"Re": 1, "velocity_space": 0}
+        solver = LinearVariationalSolver(problem, solver_parameters=parameters,appctx=appctx)
         solver.solve()
         u1,p1=w.split()
 
@@ -98,53 +142,66 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         eps=errornorm(u1,u_linear)#l2 by default
         counter+=1
         print("Picard iteration error",eps,", counter: ",counter)
-        if(eps<10**(-12)):
+        if(eps<10**(-8)):
             print("Picard iteration converged")  
             break          
         else:
             u_linear.assign(u1)
 
-    plt.plot(assemble(w.sub(0)-Function(U).project(u_exact)).dat.data)
-    plt.show()
 
-    plt.plot(assemble(w.sub(1)-Function(P).project(p_exact)).dat.data)
-    plt.show()
+    # plot error fields
+    #plot_velo_pres(Function(U).project(u1-u_exact),Function(P).project(p1-p_exact),"Error")
+   
 
     #L2 error of divergence
+    err_u=errornorm(w.sub(0),Function(U).project(u_exact))
+    err_p=errornorm(w.sub(1),Function(P).project(p_exact))
     print("L2 error of divergence",errornorm(Function(P).project(div(w.sub(0))),Function(P)))
-    print("L_inf error of velo",max(abs(assemble(w.sub(0)).dat.data)))
-    print("L_inf error of pres",max(abs(assemble(w.sub(1)).dat.data)))
-    print("L_2 error of velo", errornorm(w.sub(0),Function(U)))
-    print("L_2 error of pres",  errornorm(w.sub(1),Function(P)))
-    print("Hdiv error of velo", errornorm(w.sub(0),Function(U),"Hdiv"))
-    print("Hdiv error of pres",  errornorm(w.sub(1),Function(P),"Hdiv"))
+    print("L_inf error of velo",max(abs(assemble(w.sub(0)-Function(U).project(u_exact)).dat.data)))
+    print("L_inf error of pres",max(abs(assemble(w.sub(1)-Function(P).project(p_exact)).dat.data)))
+    print("L_2 error of velo", err_u)
+    print("L_2 error of pres", err_p)
+    # print("Hdiv error of velo", errornorm(w.sub(0),Function(U).project(u_exact),"Hdiv"))
+    # print("Hdiv error of pres",  errornorm(w.sub(1),Function(P).project(p_exact),"Hdiv"))
+    #L2 and HDiv the same...why?
+    N=2 ** mesh_size
+    return w,err_u,err_p,N
 
-    conv=max(abs(assemble(w.sub(0)).dat.data))
-    d_x=LX/2**mesh_size
-    return w,conv,d_x
-
-#
+#####################MAIN##########################
 parameters={
-    "ksp_type": "gmres",
+   # "ksp_type": "fgmres",
+   # "ksp_rtol": 1e-8,
+   # "pc_type": "fieldsplit",
+   # "pc_fieldsplit_type": "schur",
+   # "pc_fieldsplit_schur_fact_type": "full",
+   # "fieldsplit_0_ksp_type": "cg",
+   # "fieldsplit_0_pc_type": "ilu",
+   # "fieldsplit_0_ksp_rtol": 1e-8,
+   # "fieldsplit_1_ksp_type": "cg",
+   # "fieldsplit_1_ksp_rtol": 1e-8,
+   # "pc_fieldsplit_schur_precondition": "selfp",
+   # "fieldsplit_1_pc_type": "hypre"
+   "ksp_type": "gmres",
     "ksp_converged_reason": None,
     "ksp_gmres_restart":100,
     "ksp_rtol":1e-12,
     "pc_type":"lu",
     "pc_factor_mat_solver_type": "mumps",
-    "mat_type":"aij"}
-print("Channel Flow")
-print("Cell number","IterationNumber")
+    "mat_type":"aij"
+}
 
-convergence=[]
-refin=range(4,9)
-delta_x=[]
+error_velo=[]
+error_pres=[]
+refin=range(3,9)
+list_N=[]
 for n in refin:#increasing element number
     
     #solve
-    w,conv,d_x = solve_problem(n, parameters,aP=None, block_matrix=False)
+    w,err_u,err_p,N = solve_problem(n, parameters,aP=None, block_matrix=False)
     u,p=w.split()
-    convergence.append(conv)
-    delta_x.append(d_x)
+    error_velo.append(err_u)
+    error_pres.append(err_p)
+    list_N.append(N)
 
     
     #plot solutions
@@ -157,27 +214,9 @@ for n in refin:#increasing element number
 
     #plot solutions
     try:
-        plot(u)
-        plt.title("Velocity")
-        plt.xlabel("x")
-        plt.ylabel("y")
-        plt.show()
-        plot(p)
-        plt.title("Pressure")
-        plt.xlabel("x")
-        plt.ylabel("y")
-        plt.show()
+        plot_velo_pres(u,p)
     except:
         warning("Cannot show figure")
 
-print("max error in velocity",convergence)
-
-#convergence plot
-fig = plt.figure()
-axis = fig.gca()
-linear=convergence
-axis.loglog(refin,linear)
-#axis.plot(refin,refin[::-1],'r*')
-axis.set_xlabel('$Level$')
-axis.set_ylabel('$||e||_{\infty}$')
-plt.show()
+#plot convergence
+plot_convergence_velo_pres(error_velo,error_pres,list_N)
