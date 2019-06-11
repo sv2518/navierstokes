@@ -61,15 +61,17 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #building the operators
     n=FacetNormal(W.mesh())
-    nue=Constant(0.4)#re=40
+    nue=Constant(1.0)#re=40
 
     #specify inflow/solution
     x,y=SpatialCoordinate(mesh)
     lam=(-8.*pi**2/(nue**(-1)+sqrt(nue**(-2)+16*pi**2)))
     ux=1-exp(lam*x)*cos(2*pi*y)
     uy=lam/(2*pi)*exp(lam*x)*sin(2*pi*y)
-    p_sol=Function(P).project(-1./2*exp(2*lam*x))
-    u_sol=Function(U).project(as_vector((ux,uy)))
+    u_exact=as_vector((ux,uy))
+    p_exact=-1./2*exp(2*lam*x)
+    p_sol=Function(P).project(p_exact)
+    u_sol=Function(U).project(u_exact)
     inflow=Function(U).project(as_vector((ux,0.0)))
     #inflow_uniform=Function(U).project(Constant((1.0,0.0)))  
     
@@ -105,17 +107,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     
         #form
         eq = a_dg+Constant(-1.)*adv_dg-div(v)*p*dx-div(u)*q*dx
-
-        #MMS
-        #skew symmetric form of advection: https://www.sciencedirect.com/science/article/pii/0168927491901026?via%3Dihub
-        strongform1=Function(U).project(div(grad(u_exact))-0.5*grad(dot(u_exact,u_exact))-0.5*dot(u_exact,grad(u_exact))-grad(p_exact))
-        strongform2=Function(P).project(div(u_exact))
-
-        #->plot corrector force
-        #plot_velo_pres(strongform1,strongform2,"Corrector Force")
-
-        #->manufacture equations
-        f=dot(strongform1,v)*dx+dot(strongform2,q)*dx
+        f=dot(Function(U),v)*dx   
         eq +=f
         a=lhs(eq)
         L=rhs(eq)
@@ -130,8 +122,8 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
         #boundary conditions
         bc_1=[]
-      #  bc0=DirichletBC(W.sub(1),p_sol,1)
-      #  bc_1.append(bc0)
+        bc0=DirichletBC(W.sub(1),p_sol,1)
+        bc_1.append(bc0)
         bc1=DirichletBC(W.sub(0),inflow,1)#plane x=0
         bc_1.append(bc1)
         bc2=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
@@ -139,12 +131,12 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         bc3=DirichletBC(W.sub(0),Constant((0.0,0.0)),4)#plane y=L
         bc_1.append(bc3)
 
-        #add nullspace
+        #add nullspace bc all boundaries are specified
         nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
 
         #build problem and solver
         w = Function(W)
-        #nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
+        nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
         problem = LinearVariationalProblem(a, L, w, bc_1)
         solver = LinearVariationalSolver(problem, nullspace=nullspace,solver_parameters=parameters)
         solver.solve()
@@ -154,7 +146,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         eps=errornorm(u1,u_linear)#l2 by default
         counter+=1
         print("Picard iteration change in approximation",eps,", counter: ",counter)
-        if(eps<10**(-12)):
+        if(eps<10**(-8)):
             print("Picard iteration converged")  
             break          
         else:
@@ -181,25 +173,25 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
 #####################MAIN##########################
 parameters={
-   # "ksp_type": "fgmres",
-   # "ksp_rtol": 1e-8,
-   # "pc_type": "fieldsplit",
-   # "pc_fieldsplit_type": "schur",
-   # "pc_fieldsplit_schur_fact_type": "full",
-   # "fieldsplit_0_ksp_type": "cg",
-   # "fieldsplit_0_pc_type": "ilu",
-   # "fieldsplit_0_ksp_rtol": 1e-8,
-   # "fieldsplit_1_ksp_type": "cg",
-   # "fieldsplit_1_ksp_rtol": 1e-8,
-   # "pc_fieldsplit_schur_precondition": "selfp",
-   # "fieldsplit_1_pc_type": "hypre"
-   "ksp_type": "gmres",
-    "ksp_converged_reason": None,
-    "ksp_gmres_restart":100,
-    "ksp_rtol":1e-12,
-    "pc_type":"lu",
-    "pc_factor_mat_solver_type": "mumps",
-    "mat_type":"aij"
+    "ksp_type": "fgmres",
+    "ksp_rtol": 1e-8,
+    "pc_type": "fieldsplit",
+    "pc_fieldsplit_type": "schur",
+    "pc_fieldsplit_schur_fact_type": "full",
+    "fieldsplit_0_ksp_type": "cg",
+    "fieldsplit_0_pc_type": "ilu",
+    "fieldsplit_0_ksp_rtol": 1e-8,
+    "fieldsplit_1_ksp_type": "cg",
+    "fieldsplit_1_ksp_rtol": 1e-8,
+    "pc_fieldsplit_schur_precondition": "selfp",
+    "fieldsplit_1_pc_type": "hypre"
+   #"ksp_type": "gmres",
+  #  "ksp_converged_reason": None,
+   # "ksp_gmres_restart":100,
+   # "ksp_rtol":1e-12,
+   # "pc_type":"lu",
+   # "pc_factor_mat_solver_type": "mumps",
+   # "mat_type":"aij"
 }
 
 error_velo=[]
