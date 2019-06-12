@@ -17,7 +17,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
     dt_max=0.00001
     dt=0.00001 #for lower Reynoldnumber lower dt??
-    T=0.00003
+    T=0.0002
     theta=0.25
     
     #function spaces
@@ -37,13 +37,11 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #specify inflow/initial solution
     x,y=SpatialCoordinate(mesh)
     t=0.0
-    Um = 1.5
-    H = 0.41
 
     # Constant parabolic inflow
     # Max inflow is (1.5, 0)
     x, y = SpatialCoordinate(mesh)
-    inflow_expr = as_vector([-4*Um*y*(y-H), 0*y])
+    inflow_expr = as_vector([-4*1.5*y*(y-0.41), 0*y])
 
     inflow=Function(U).project(inflow_expr)#changed to time dependent
    # inflow_uniform=Function(U).project(Constant((1.0,0.0)))  
@@ -63,7 +61,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     outfl=DirichletBC(W.sub(1),Constant(0.0),3)
 
     #intial values
-    p_n= Function(P).project(-8*Um*(2-x))#pres for init time step #??????
+    p_n= Function(P).project(-8*1.5*(2-x))#pres for init time step #??????
     u_n=Function(U).assign(inflow) #velo for init time step
     v_k=Function(U).assign(u_n)#init Picard value vk=un
     p_k=Function(P).assign(p_n)#init Picard value vk=un
