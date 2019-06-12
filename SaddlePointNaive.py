@@ -32,14 +32,11 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #normal and essentially reynolds number
     n=FacetNormal(W.mesh())
-    nue=Constant(0.02)
+    nue=Constant(0.1)
 
     #specify inflow/initial solution
     x,y=SpatialCoordinate(mesh)
     t=0.0
-
-    # Constant parabolic inflow
-    # Max inflow is (1.5, 0)
     x, y = SpatialCoordinate(mesh)
     inflow_expr = as_vector([-4*1.5*y*(y-0.41), 0*y])
 
