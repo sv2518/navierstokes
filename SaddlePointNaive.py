@@ -82,6 +82,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
 
 
+
     p_k=Function(P).assign(p_n)#init Picard value vk=un
 
     ubar_k=Constant(0.5)*(u_n+v_k) #init old midstep
