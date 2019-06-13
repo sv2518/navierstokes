@@ -23,8 +23,8 @@ def plot_convergence_velo_pres(error_velo,error_pres,list_N):
     axis = fig.gca()
     linear=error_velo[::-1]
     axis.loglog(list_N,linear,label='$||e_u||_{\infty}$')
-    axis.loglog(list_N,0.001*np.power(list_N,2),'r*',label="second order")
-    axis.loglog(list_N,0.001*np.power(list_N,1),'g*',label="first order")
+    axis.loglog(list_N,0.0001*np.power(list_N,2),'r*',label="second order")
+    axis.loglog(list_N,0.0001*np.power(list_N,1),'g*',label="first order")
     axis.set_xlabel('$2**Level$')
     axis.set_ylabel('$Error$')
     axis.legend()
@@ -61,12 +61,17 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #building the operators
     n=FacetNormal(W.mesh())
-    nue=Constant(1.0)#re=40
+    nue=Constant(0.4)#re=40
 
     #specify inflow/solution
     x,y=SpatialCoordinate(mesh)
-    lam=(-8.*pi**2/(nue**(-1)+sqrt(nue**(-2)+16*pi**2)))
-    #lam=(2/(nue**(1)+sqrt(nue**(2)+16*pi**2)))
+    lam=(-8.*pi**2/(nue**(-1)+sqrt(nue**(-2)+16*pi**2))) #from paper
+    #lam=(-2*pi**2/(nue**(1)+sqrt(nue**(2)+16*pi**2)))
+    #lam=-2*pi
+    #lam=nue/2-sqrt(nue**2/4+4*pi**2) #from old book
+    #lam=1/(2*nue)-sqrt(1/(4*nue**2)+4*pi**2) #from new book
+    #lam= 1/(2*nue)-sqrt(1/(4*nue**2)+4*pi**2) #from nektar
+
     ux=1-exp(lam*x)*cos(2*pi*y)
     uy=lam/(2*pi)*exp(lam*x)*sin(2*pi*y)
     u_exact=as_vector((ux,uy))
@@ -76,20 +81,21 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     inflow=Function(U).project(as_vector((ux,uy)))
     #inflow_uniform=Function(U).project(Constant((1.0,0.0)))  
     
+
     #Picard iteration
     u_linear=Function(U).assign(inflow)
     counter=0
     while(True):
 
         #Laplacian
-        alpha=Constant(10.)
-        gamma=Constant(10.) 
-        h=CellVolume(mesh)/FacetArea(mesh)
+        alpha=Constant(1000.)#interior
+        gamma=Constant(1000.) #exterior
+        h=CellVolume(mesh)/FacetArea(mesh)  
         havg=avg(CellVolume(mesh))/FacetArea(mesh)
         kappa1=nue*alpha/havg
         kappa2=nue*gamma/h
 
-        g=Function(U).project(as_vector((ux,uy))) 
+        g=Function(U).assign(inflow) 
         #g=Constant((0.0,0.0))
 
         a_dg=(nue*inner(grad(u),grad(v))*dx
@@ -101,7 +107,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             +kappa1*inner(both(outer(u-g,n)),both(outer(v,n)))*dS)
          
         #Advection
-        un = 0.5*(dot(u_linear, n)+sign(dot(u_linear, n))*dot(g,n) +abs(dot(g,n))+ abs(dot(u_linear, n)))
+        un = 0.5*(dot(u_linear, n)+sign(dot(u_linear, n))*dot(g,n)+abs(dot(g,n))+ abs(dot(u_linear, n)))
         adv_dg=(dot(u_linear,div(outer(v,u)))*dx#like paper
             -inner(v,u*un)*ds#similar to matt piggots
             -dot((v('+')-v('-')),(un('+')*(u('+')) - un('-')*(u('-'))))*dS)#like in the tutorial
@@ -146,7 +152,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         eps=errornorm(u1,u_linear)#l2 by default
         counter+=1
         print("Picard iteration change in approximation",eps,", counter: ",counter)
-        if(eps<10**(-8)):
+        if(eps<10**(-12)):
             print("Picard iteration converged")  
             break          
         else:
@@ -166,8 +172,10 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     print("L_inf error of pres",max(abs(assemble(w.sub(1)-Function(P).project(p_exact)).dat.data)))
     print("L_2 error of velo", err_u)
     print("L_2 error of pres", err_p)
-    # print("Hdiv error of velo", errornorm(w.sub(0),Function(U).project(u_exact),"Hdiv"))
-    # print("Hdiv error of pres",  errornorm(w.sub(1),Function(P).project(p_exact),"Hdiv"))
+    print("Hdiv error of velo", errornorm(w.sub(0),Function(U).project(u_exact),"Hdiv"))
+    print("Hdiv error of pres",  errornorm(w.sub(1),Function(P).project(p_exact),"Hdiv"))
+    print("H1 error of velo", errornorm(w.sub(0),Function(U).project(u_exact),"H1"))
+    print("H1 error of pres",  errornorm(w.sub(1),Function(P).project(p_exact),"H1"))
     #L2 and HDiv the same...why?
     N=2 ** mesh_size
     return w,err_u,err_p,N
@@ -197,7 +205,7 @@ parameters={
 
 error_velo=[]
 error_pres=[]
-refin=range(4,8)
+refin=range(4,9)
 list_N=[]
 for n in refin:#increasing element number
     
@@ -225,3 +233,16 @@ for n in refin:#increasing element number
 
 #plot convergence
 plot_convergence_velo_pres(error_velo,error_pres,list_N)
+
+#plot actual errors in L2
+plt.plot(refin,np.array([3.9,1.2,0.33,0.093,0.026]),label="paper")
+plt.plot(refin,np.array(error_pres)/100,label="mine/100")
+plt.legend()
+plt.title("L2 error pressure")
+plt.show()
+
+plt.plot(refin,np.array([0.23,0.062,0.016,0.0042,0.0011]),label="paper")
+plt.plot(refin,error_velo,label="mine")
+plt.legend()
+plt.title("L2 error velocity")
+plt.show()
