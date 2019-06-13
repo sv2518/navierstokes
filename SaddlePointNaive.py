@@ -15,11 +15,13 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #mesh.coordinates.dat.data-=mesh.coordinates.dat.data[15:25,0]
     #mesh.coordinates.dat.data[1:2,1]-=mesh.coordinates.dat.data[1:2,0]
 
-    dt_max=0.00001
-    dt=0.00001 #for lower Reynoldnumber lower dt??
-    T=0.0002
-    theta=0.25
+    dt_max=0.001
+    dt=0.001 #for lower Reynoldnumber lower dt??
+    T=0.002
+    theta=1
     
+    #max dx is 0.05 min dx is 0.001
+
     #function spaces
     U = FunctionSpace(mesh, "RT",1)
     P = FunctionSpace(mesh, "DG", 0)
@@ -32,7 +34,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #normal and essentially reynolds number
     n=FacetNormal(W.mesh())
-    nue=Constant(0.1)
+    nue=Constant(1)
 
     #specify inflow/initial solution
     x,y=SpatialCoordinate(mesh)
@@ -61,6 +63,25 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     p_n= Function(P).project(-8*1.5*(2-x))#pres for init time step #??????
     u_n=Function(U).assign(inflow) #velo for init time step
     v_k=Function(U).assign(u_n)#init Picard value vk=un
+
+
+    #solve the following problem for initial values
+    u_init,p_init = TrialFunctions(W)
+    v_knew_hat=Function(U)
+    f_pres=Function(P)
+    lapl_dg_init=(nue*inner(grad(u_init),grad(v))*dx
+        -inner(outer(v,n),nue*grad(u_init))*ds 
+        -inner(outer(u_init,n),nue*grad(v))*ds 
+        +kappa2*inner(v,u_init)*ds 
+        -inner(nue*avg(grad(v)),both(outer(u_init,n)))*dS
+        -inner(both(outer(v,n)),nue*avg(grad(u_init)))*dS
+        +kappa1*inner(both(outer(u_init,n)),both(outer(v,n)))*dS)
+
+
+    init=dot(w,v)*dx-dot(f_pres,q)*dx-div(u_init)*q*dx-div(v)*p_init*dx-lapl_dg#dt somewhere in here??
+
+
+
     p_k=Function(P).assign(p_n)#init Picard value vk=un
 
     ubar_k=Constant(0.5)*(u_n+v_k) #init old midstep
@@ -71,7 +92,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #Advection operator
     un = 0.5*(dot(ubar_k, n) + abs(dot(ubar_k, n)))#conditional for upwind discretisation
     adv_dg=(dot(ubar_k,div(outer(v,ubar_knew)))*dx#like paper
-        -inner(v,(ubar_knew*dot(ubar_k,n)))*ds#similar to matt piggots
+        -inner(v,(ubar_knew*un))*ds#similar to matt piggots
         -dot((v('+')-v('-')),(un('+')*ubar_knew('+') - un('-')*ubar_knew('-')))*dS)#like in the tutorial
 
     #Laplacian operator
@@ -156,7 +177,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             p_k.assign(p_n)#or psolhat???????????
             counter+=1
             print("Picard iteration error",eps,", counter: ",counter)
-            if(counter>dt_max/dt-1):
+            if(counter>2):
                 print("Picard iteration converged")  
                 break          
             
