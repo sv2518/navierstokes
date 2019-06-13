@@ -129,8 +129,8 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
         #boundary conditions
         bc_1=[]
-      #  bc0=DirichletBC(W.sub(1),p_sol,1)
-       # bc_1.append(bc0)
+        #bc0=DirichletBC(W.sub(1),Function(P),2)
+        #bc_1.append(bc0)
         bc1=DirichletBC(W.sub(0),inflow,1)#plane x=0
         bc_1.append(bc1)
         bc2=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
