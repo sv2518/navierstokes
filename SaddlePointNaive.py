@@ -44,11 +44,10 @@ def plot_convergence_velo_pres(error_velo,error_pres,list_N):
 
 def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #generate mesh
-    LX=2.0
-    LY=2.0
+    LX=1.0
+    LY=1.0
     mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
-    mesh.coordinates.dat.data[:,0]-=0.5
-
+    
     #function spaces
     U = FunctionSpace(mesh, "RTCF",1)
     P = FunctionSpace(mesh, "DG", 0)
@@ -61,24 +60,10 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #building the operators
     n=FacetNormal(W.mesh())
-    nue=Constant(1.0)#re=40
+    nue=Constant(1)#re=40
 
     #specify inflow/solution
     x,y=SpatialCoordinate(mesh)
-    #lam=(-8.*pi**2/(nue**(-1)+sqrt(nue**(-2)+16*pi**2))) #from paper
-    #lam=(-2*pi**2/(nue**(1)+sqrt(nue**(2)+16*pi**2)))
-    #lam=-2*pi
-    #lam=nue/2-sqrt(nue**2/4+4*pi**2) #from old book
-    #lam=1/(2*nue)-sqrt(1/(4*nue**2)+4*pi**2) #from new book
-    #lam= 1/(2*nue)-sqrt(1/(4*nue**2)+4*pi**2) #from nektar
-
-    #ux=1-exp(lam*x)*cos(2*pi*y)
-    #uy=lam/(2*pi)*exp(lam*x)*sin(2*pi*y)
-   # u_exact=as_vector((ux,uy))
-   # p_exact=-1./2*exp(2*lam*x)
-    #p_sol=Function(P).project(p_exact)
-    #u_sol=Function(U).project(u_exact)
-    #inflow=Function(U).project(as_vector((ux,uy)))
     inflow_uniform=Function(U).project(Constant((0.0,0.0)))  
     
 
@@ -88,44 +73,47 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     while(True):
 
         #Laplacian
-        alpha=Constant(200.)#interior
-        gamma=Constant(200.) #exterior
+        alpha=Constant(0.1)#interior
+        gamma=Constant(0.1) #exterior
         h=CellVolume(mesh)/FacetArea(mesh)  
         havg=avg(CellVolume(mesh))/FacetArea(mesh)
         kappa1=nue*alpha/havg
         kappa2=nue*gamma/h
 
-        g=Function(U).assign(Constant((-1.0,0.0)))
+        g_neg=Function(U).project(Constant((0.0,0.0)))
+        g_pos=Function(U).project(Constant((1.0,0.0)))
         #g=Constant((0.0,0.0))
 
-        #a_dg for lid
+        #a_dg for other sides
         a_dg=(nue*inner(grad(u),grad(v))*dx
-            -inner(outer(v,n),nue*grad(u))*ds(3) 
-            -inner(outer(u-g,n),nue*grad(v))*ds(3) 
-            +kappa2*inner(v,u-g)*ds(3) 
-            -inner(nue*avg(grad(v)),both(outer(u-g,n)))*dS(3)
-            -inner(both(outer(v,n)),nue*avg(grad(u)))*dS(3)
-            +kappa1*inner(both(outer(u-g,n)),both(outer(v,n)))*dS(3))
+            -inner(outer(v,n),nue*grad(u))*ds((1,2,3)) 
+            -inner(outer(u-g_neg,n),nue*grad(v))*ds((1,2,3)) 
+            +kappa2*inner(v,u-g_neg)*ds((1,2,3))
+            -inner(nue*avg(grad(v)),both(outer(u-g_neg,n)))*dS((1,2,3))
+            -inner(both(outer(v,n)),nue*avg(grad(u)))*dS((1,2,3))
+            +kappa1*inner(both(outer(u-g_neg,n)),both(outer(v,n)))*dS((1,2,3)))
 
-        #a_dg for other thingis
-        a_dg+=(-inner(outer(v,n),nue*grad(u))*ds((1,2,4))
-            -inner(outer(u,n),nue*grad(v))*ds((1,2,4)) 
-            +kappa2*inner(v,u)*ds((1,2,4))
-            -inner(nue*avg(grad(v)),both(outer(u,n)))*dS((1,2,4))
-            -inner(both(outer(v,n)),nue*avg(grad(u)))*dS((1,2,4))
-            +kappa1*inner(both(outer(u,n)),both(outer(v,n)))*dS((1,2,4)))
+        #a_dg for lid
+        a_dg+=(-inner(outer(v,n),nue*grad(u))*ds((4))
+            -inner(outer(u-g_pos,n),nue*grad(v))*ds((4)) 
+            +kappa2*inner(v,u-g_pos)*ds((4))
+            -inner(both(outer(v,n)),nue*avg(grad(u)))*dS((4))
+            -inner(nue*avg(grad(v)),both(outer(u-g_pos,n)))*dS((4))
+            +kappa1*inner(both(outer(u-g_pos,n)),both(outer(v,n)))*dS((4)))
          
         #Advection
         #for lid
-        un = 0.5*(dot(u_linear, n)+sign(dot(u_linear, n))*dot(g,n)+abs(dot(g,n))+ abs(dot(u_linear, n)))
+        un = 0.5*(dot(u_linear, n)+ abs(dot(u_linear, n)))
+        
+        un_pos = 0.5*(dot(u_linear, n)-(dot(g_pos,n))+abs(dot(g_pos,n))+ abs(dot(u_linear, n)))
         adv_dg=(dot(u_linear,div(outer(v,u)))*dx#like paper
-            -inner(v,u*un)*ds(3)#similar to matt piggots
-            -dot((v('+')-v('-')),(un('+')*(u('+')) - un('-')*(u('-'))))*dS(3))#like in the tutorial
+            -dot(v,u*un_pos)*ds(4)#similar to matt piggots
+            -dot((v('+')-v('-')),(un('+')*(u('+')) - un('-')*(u('-'))))*dS(4))#like in the tutorial
     
         #for other thingis
-        un_1 = 0.5*(dot(u_linear, n)+ abs(dot(u_linear, n)))
-        adv_dg+=(-inner(v,u*un_1)*ds((1,2,4)) #similar to matt piggots
-            -dot((v('+')-v('-')),(un_1('+')*(u('+')) - un_1('-')*(u('-'))))*dS((1,2,4)) )#like in the tutorial
+        #un_neg = 0.5*(dot(u_linear, n)+sign(dot(u_linear, n))*dot(g_neg,n)+abs(dot(g_neg,n))+ abs(dot(u_linear, n)))
+        adv_dg+=(-inner(v,u*un)*ds((1,2,3)) #similar to matt piggots
+            -dot((v('+')-v('-')),(un('+')*(u('+')) - un('-')*(u('-'))))*dS((1,2,3)) )#like in the tutorial
     
 
         #form
@@ -160,7 +148,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         #build problem and solver
         w = Function(W)
         problem = LinearVariationalProblem(a, L, w, bc_1)
-        solver = LinearVariationalSolver(problem,nullspace=nullspace, solver_parameters=parameters)
+        solver = LinearVariationalSolver(problem,nullspace=nullspace,solver_parameters=parameters)
         solver.solve()
         u1,p1=w.split()
 
@@ -168,7 +156,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         eps=errornorm(u1,u_linear)#l2 by default
         counter+=1
         print("Picard iteration change in approximation",eps,", counter: ",counter)
-        if(eps<10**(-12)):
+        if(eps<10**(-6)):
             print("Picard iteration converged")  
             break          
         else:
@@ -177,7 +165,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
 
         # plot error fields
-    plot_velo_pres(Function(U).project(u1),Function(P).project(p1),"Error")
+    plot_velo_pres(Function(U).project(u1),Function(P).project(p1),"Solution")
    
 
     #L2 error of divergence
@@ -198,30 +186,30 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
 #####################MAIN##########################
 parameters={
-    #"ksp_type": "fgmres",
-    #"ksp_rtol": 1e-8,
+   # "ksp_type": "fgmres",
+   # "ksp_rtol": 1e-8,
    # "pc_type": "fieldsplit",
-  #  "pc_fieldsplit_type": "schur",
+   # "pc_fieldsplit_type": "schur",
    # "pc_fieldsplit_schur_fact_type": "full",
    # "fieldsplit_0_ksp_type": "cg",
-   # "fieldsplit_0_pc_type": "ilu",
-    #"fieldsplit_0_ksp_rtol": 1e-8,
-    #"fieldsplit_1_ksp_type": "cg",
-    #"fieldsplit_1_ksp_rtol": 1e-8,
-    #"pc_fieldsplit_schur_precondition": "selfp",
-    #"fieldsplit_1_pc_type": "hypre"
+    #"fieldsplit_0_pc_type": "ilu",
+   # "fieldsplit_0_ksp_rtol": 1e-8,
+   # "fieldsplit_1_ksp_type": "cg",
+   # "fieldsplit_1_ksp_rtol": 1e-8,
+   # "pc_fieldsplit_schur_precondition": "selfp",
+   # "fieldsplit_1_pc_type": "hypre"
     "ksp_type": "gmres",
     "ksp_converged_reason": None,
-   "ksp_gmres_restart":100,
-    "ksp_rtol":1e-12,
-    "pc_type":"lu",
-    "pc_factor_mat_solver_type": "mumps",
-    "mat_type":"aij"
+   "ksp_gmres_restart":500,
+   "ksp_rtol":1e-12,
+     "pc_type":"lu",
+   "pc_factor_mat_solver_type": "mumps",
+   "mat_type":"aij"
 }
 
 error_velo=[]
 error_pres=[]
-refin=range(4,9)
+refin=range(7,8)
 list_N=[]
 for n in refin:#increasing element number
     
