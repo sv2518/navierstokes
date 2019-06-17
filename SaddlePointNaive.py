@@ -60,7 +60,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #building the operators
     n=FacetNormal(W.mesh())
-    nue=Constant(1)#re=40
+    nue=Constant(0.59)#re=40
 
     #specify inflow/solution
     x,y=SpatialCoordinate(mesh)
@@ -73,8 +73,8 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     while(True):
 
         #Laplacian
-        alpha=Constant(0.1)#interior
-        gamma=Constant(0.1) #exterior
+        alpha=Constant(5)#interior
+        gamma=Constant(5) #exterior
         h=CellVolume(mesh)/FacetArea(mesh)  
         havg=avg(CellVolume(mesh))/FacetArea(mesh)
         kappa1=nue*alpha/havg
@@ -94,9 +94,9 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             +kappa1*inner(both(outer(u-g_neg,n)),both(outer(v,n)))*dS((1,2,3)))
 
         #a_dg for lid
-        a_dg+=(-inner(outer(v,n),nue*grad(u))*ds((4))
-            -inner(outer(u-g_pos,n),nue*grad(v))*ds((4)) 
-            +kappa2*inner(v,u-g_pos)*ds((4))
+        a_dg+=(#-inner(outer(v,n),nue*grad(g_pos))*ds((4))
+            -inner(outer(g_pos,n),nue*grad(v))*ds((4)) 
+            +kappa2*inner(v,g_pos)*ds((4))
             -inner(both(outer(v,n)),nue*avg(grad(u)))*dS((4))
             -inner(nue*avg(grad(v)),both(outer(u-g_pos,n)))*dS((4))
             +kappa1*inner(both(outer(u-g_pos,n)),both(outer(v,n)))*dS((4)))
@@ -156,7 +156,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         eps=errornorm(u1,u_linear)#l2 by default
         counter+=1
         print("Picard iteration change in approximation",eps,", counter: ",counter)
-        if(eps<10**(-6)):
+        if(counter>100):#eps<10**(-2)):
             print("Picard iteration converged")  
             break          
         else:
@@ -209,7 +209,7 @@ parameters={
 
 error_velo=[]
 error_pres=[]
-refin=range(7,8)
+refin=range(5,6)
 list_N=[]
 for n in refin:#increasing element number
     
