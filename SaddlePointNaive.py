@@ -5,7 +5,7 @@ def both(expr):
     return expr('+') + expr('-')
 
 
-def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
+def solve_problem(mesh_size, parameters_pres,parameters_velo, aP=None, block_matrix=False):
     #generate mesh
     LX=2
     LY=1
@@ -15,9 +15,9 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #mesh.coordinates.dat.data-=mesh.coordinates.dat.data[15:25,0]
     #mesh.coordinates.dat.data[1:2,1]-=mesh.coordinates.dat.data[1:2,0]
 
-    dt_max=0.001
-    dt=0.001 #for lower Reynoldnumber lower dt??
-    T=0.002
+    dt_max=0.0000001
+    dt=0.0000001 #for lower Reynoldnumber lower dt??
+    T=0.0000002
     theta=1
     
     #max dx is 0.05 min dx is 0.001
@@ -34,7 +34,8 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #normal and essentially reynolds number
     n=FacetNormal(W.mesh())
-    nue=Constant(1)
+    nue=Constant(0.001)
+    appctx = {"Re": 100, "velocity_space": 0}
 
     #specify inflow/initial solution
     x,y=SpatialCoordinate(mesh)
@@ -59,16 +60,17 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
     outfl=DirichletBC(W.sub(1),Constant(0.0),3)
 
-    #intial values
-    p_n= Function(P).project(-8*1.5*(2-x))#pres for init time step #??????
-    u_n=Function(U).assign(inflow) #velo for init time step
-    v_k=Function(U).assign(u_n)#init Picard value vk=un
 
-
-    #solve the following problem for initial values
+    #INITAL VALUES: solve the following problem for initial values
     u_init,p_init = TrialFunctions(W)
     v_knew_hat=Function(U)
     f_pres=Function(P)
+    alpha=Constant(10.)
+    gamma=Constant(10.) 
+    h=CellVolume(mesh)/FacetArea(mesh)
+    havg=avg(CellVolume(mesh))/FacetArea(mesh)
+    kappa1=nue * alpha/havg
+    kappa2=nue * gamma/h
     lapl_dg_init=(nue*inner(grad(u_init),grad(v))*dx
         -inner(outer(v,n),nue*grad(u_init))*ds 
         -inner(outer(u_init,n),nue*grad(v))*ds 
@@ -77,14 +79,27 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         -inner(both(outer(v,n)),nue*avg(grad(u_init)))*dS
         +kappa1*inner(both(outer(u_init,n)),both(outer(v,n)))*dS)
 
+    eq_init=dot(u_init,v)*dx-dot(f_pres,q)*dx-div(u_init)*q*dx-div(v)*p_init*dx+lapl_dg_init#dt somewhere in here??
+ 
+ 
+    w_init= Function(W)
+    init = LinearVariationalProblem(lhs(eq_init),rhs(eq_init), w_init,[infl,noslip])
+    solver = LinearVariationalSolver(init, solver_parameters=parameters_velo)
+    solver.solve()
+    u_init_sol,p_init_sol=w_init.split()
+    
+    plot(u_init_sol)
+    plt.show()
 
-    init=dot(w,v)*dx-dot(f_pres,q)*dx-div(u_init)*q*dx-div(v)*p_init*dx-lapl_dg#dt somewhere in here??
+    plot(p_init_sol)
+    plt.show()
 
 
-
-
+    #intial values
+    p_n= Function(P).assign(p_init_sol)#pres for init time step #??????
+    u_n=Function(U).assign(u_init_sol) #velo for init time step
+    v_k=Function(U).assign(u_n)#init Picard value vk=un
     p_k=Function(P).assign(p_n)#init Picard value vk=un
-
     ubar_k=Constant(0.5)*(u_n+v_k) #init old midstep
     v_knew,pk_new=TrialFunctions(W)
     ubar_knew=Constant(0.5)*(u_n+v_knew) #init new midstep
@@ -126,7 +141,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
     #form for predictor
     pres_dg_pred=div(v)*p_k*dx
-    eq_pred=eq+pres_dg_pred
+    eq_pred=eq-pres_dg_pred
 
     #Form for pressure correction
     w,beta = TrialFunctions(W)
@@ -134,9 +149,8 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     f_pres=Function(P).project(div(v_knew_hat)) 
     force_dg_pres=dot(f_pres,q)*dx#sign right?
     incomp_dg_pres=div(w)*q*dx
-    pres_dg_pres=div(v)*beta*dx
-    
-    eq_pres=dot(w,v)*dx+force_dg_pres+1/dt*incomp_dg_pres-pres_dg_pres #dt somewhere in here??
+    pres_dg_pres=div(v)*beta*dx    
+    eq_pres=dot(w,v)*dx-force_dg_pres+incomp_dg_pres-pres_dg_pres #dt somewhere in here??
 
     #Form for corrector
     p_k_update=Function(P)
@@ -164,18 +178,19 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             #build problem and solver (maybe also outside??)
             print("\n....predictor solve\n")
             w_pred = Function(W)
-            predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred,[infl,noslip])
-            solver = LinearVariationalSolver(predictor, solver_parameters=parameters)
+            predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred,[infl,noslip,outfl])
+            solver = LinearVariationalSolver(predictor, solver_parameters=parameters_velo)
             solver.solve()
             usolhat,psolhat=w_pred.split()
 
-           # plot(psolhat)
-           # plt.show()
+            plot(usolhat)
+            plt.show()
+
 
             #convergence criterion
             eps=errornorm(v_k,usolhat)#l2 by default
             v_k.assign(usolhat)
-            p_k.assign(p_n)#or psolhat???????????
+            #p_k.assign(p_n)#or psolhat???????????
             counter+=1
             print("Picard iteration error",eps,", counter: ",counter)
             if(counter>2):
@@ -190,13 +205,15 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         eq_pres_new=replace(eq_pres,{v_knew_hat:v_k})
         #amg as preconditioner?
         w_pres = Function(W)
-        nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
         pressure= LinearVariationalProblem(lhs(eq_pres_new),rhs(eq_pres_new),w_pres,[infl,noslip,outfl])#BC RIGHT???
-        solver = LinearVariationalSolver(pressure,solver_parameters=parameters)
+        solver = LinearVariationalSolver(pressure,solver_parameters=parameters_velo)#,appctx=appctx)
         solver.solve()
         wsol,betasol=w_pres.split()
         print(assemble(betasol).dat.data)
         p_knew=Function(P).project(p_n+betasol/dt)#or pk??????????
+
+        plot(p_knew)
+        plt.show()
 
         #v_knew=Function(U).project(usolhat+grad(betasol))
 
@@ -207,7 +224,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         #v_k already updated
         w_corr = Function(W)
         corrector= LinearVariationalProblem(lhs(eq_corr),rhs(eq_corr), w_corr,[infl,noslip])
-        solver = LinearVariationalSolver(corrector, solver_parameters=parameters)
+        solver = LinearVariationalSolver(corrector, solver_parameters=parameters_velo)
         solver.solve()
         usol,psol=w_corr.split()
 
@@ -238,7 +255,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     return sol
 
 #########################################################################
-parameters={    
+parameters_velo={    
     "ksp_type": "gmres",
     "ksp_rtol": 1e-8,
     "pc_type": "fieldsplit",
@@ -251,11 +268,18 @@ parameters={
     "fieldsplit_1_pc_type": "hypre"
     }
 
-refin=range(4,5)
+parameters_pres={ 'ksp_type': 'cg',
+                         'pc_type': 'fieldsplit',
+                         'pc_fieldsplit_type': 'schur',
+                         'pc_fieldsplit_schur_fact_type': 'FULL',
+                         'fieldsplit_0_ksp_type': 'cg',
+                         'fieldsplit_1_ksp_type': 'cg'}
+
+refin=range(3,4)
 for n in refin:#increasing element number
     
     #solve
-    sol= solve_problem(n, parameters,aP=None, block_matrix=False)
+    sol= solve_problem(n, parameters_pres,parameters_velo,aP=None, block_matrix=False)
     u,p=sol.split()
 
     
