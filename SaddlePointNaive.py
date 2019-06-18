@@ -4,21 +4,54 @@ import matplotlib.pyplot as plt
 def both(expr):
     return expr('+') + expr('-')
 
+def plot_velo_pres(u,p,title):
+    plot(u)
+    plt.title(str(title+" Velocity"))
+    plt.xlabel("x")
+    plt.ylabel("y")
+    plt.show()
+    plot(p)
+    plt.title(str(title+" Pressure"))
+    plt.xlabel("x")
+    plt.ylabel("y")
+    plt.show()
+
+def plot_convergence_velo_pres(error_velo,error_pres,list_N):
+    # velocity convergence plot
+    fig = plt.figure()
+    axis = fig.gca()
+    linear=error_velo[::-1]
+    axis.loglog(list_N,linear,label='$||e_u||_{\infty}$')
+    axis.loglog(list_N,0.0001*np.power(list_N,2),'r*',label="second order")
+    axis.loglog(list_N,0.0001*np.power(list_N,1),'g*',label="first order")
+    axis.set_xlabel('$2**Level$')
+    axis.set_ylabel('$Error$')
+    axis.legend()
+    plt.show()
+
+    #pressure convergence plot
+    fig = plt.figure()
+    axis = fig.gca()
+    linear=error_pres[::-1]
+    axis.loglog(list_N,linear,label='$||e_p||_{\infty}$')
+    axis.loglog(list_N,0.1*np.power(list_N,2),'r*',label="second order")
+    axis.loglog(list_N,0.1*np.power(list_N,1),'g*',label="first order")
+    axis.set_xlabel('$2**Level$')
+    axis.set_ylabel('$Error$')
+    axis.legend()
+    plt.show()
 
 def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #generate mesh
-    LX=2
-    LY=1
-   # mesh = Mesh("cylinder_lawrence.msh")
-    mesh = Mesh("cylinder-5.msh")
-    #mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
-    #mesh.coordinates.dat.data-=mesh.coordinates.dat.data[15:25,0]
-    #mesh.coordinates.dat.data[1:2,1]-=mesh.coordinates.dat.data[1:2,0]
-
+    
     dt_max=0.001
     dt=0.001 #for lower Reynoldnumber lower dt??
     T=0.002
     theta=1
+    LX=1.0
+    LY=1.0
+    mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
+    U_inf=1.0
     
     #max dx is 0.05 min dx is 0.001
 
@@ -34,30 +67,23 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 	
     #normal and essentially reynolds number
     n=FacetNormal(W.mesh())
-    nue=Constant(1)
+    nue=Constant(0.59)#re=40
 
-    #specify inflow/initial solution
+    #specify inflow/solution
     x,y=SpatialCoordinate(mesh)
     t=0.0
-    x, y = SpatialCoordinate(mesh)
-    inflow_expr = as_vector([-4*1.5*y*(y-0.41), 0*y])
-
-    inflow=Function(U).project(inflow_expr)#changed to time dependent
-   # inflow_uniform=Function(U).project(Constant((1.0,0.0)))  
-    
-    #time dependent pressure inflow
- #   t=0
-  #  p_in=Function(P).project(Constant(sin(3*t)))
-  #  infl=DirichletBC(W.sub(1),p_in,1)#plane x=0
+    inflow_uniform=Function(U).project(Constant((0.0,0.0))) 
 
     #boundary conditions
-    bc=[]
-    infl=DirichletBC(W.sub(0),inflow,2)
-    bc.append(infl)
-    noslip=DirichletBC(W.sub(0),Constant((0.0,0.0)),1)#plane y=0
-    bc.append(noslip)
-
-    outfl=DirichletBC(W.sub(1),Constant(0.0),3)
+    bc_1=[]
+    bc0=DirichletBC(W.sub(0),Constant((0.0,0.0)),1)
+    bc_1.append(bc0)
+    bc1=DirichletBC(W.sub(0),Constant((0.0,0.0)),2)#plane x=0
+    bc_1.append(bc1)
+    bc2=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
+    bc_1.append(bc2)
+    bc3=DirichletBC(W.sub(0),Constant((0.0,.0)),4)#plane y=L
+    bc_1.append(bc3)
 
     #intial values
     p_n= Function(P).project(-8*1.5*(2-x))#pres for init time step #??????
@@ -80,8 +106,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
     init=dot(w,v)*dx-dot(f_pres,q)*dx-div(u_init)*q*dx-div(v)*p_init*dx-lapl_dg#dt somewhere in here??
 
-
-
+################
 
     p_k=Function(P).assign(p_n)#init Picard value vk=un
 
@@ -90,26 +115,50 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     ubar_knew=Constant(0.5)*(u_n+v_knew) #init new midstep
     
     #TODO: OPERATORS---------------------------------------
-    #Advection operator
-    un = 0.5*(dot(ubar_k, n) + abs(dot(ubar_k, n)))#conditional for upwind discretisation
-    adv_dg=(dot(ubar_k,div(outer(v,ubar_knew)))*dx#like paper
-        -inner(v,(ubar_knew*un))*ds#similar to matt piggots
-        -dot((v('+')-v('-')),(un('+')*ubar_knew('+') - un('-')*ubar_knew('-')))*dS)#like in the tutorial
+     #Picard iteration
+    u_linear=Function(U).assign(inflow_uniform)
 
-    #Laplacian operator
-    alpha=Constant(10.)
-    gamma=Constant(10.) 
-    h=CellVolume(mesh)/FacetArea(mesh)
+    #Laplacian
+    alpha=Constant(10)#interior
+    gamma=Constant(10) #exterior
+    h=CellVolume(mesh)/FacetArea(mesh)  
     havg=avg(CellVolume(mesh))/FacetArea(mesh)
-    kappa1=nue * alpha/havg
-    kappa2=nue * gamma/h
-    lapl_dg=(nue*inner(grad(ubar_knew),grad(v))*dx
-        -inner(outer(v,n),nue*grad(ubar_knew))*ds 
-        -inner(outer(ubar_knew,n),nue*grad(v))*ds 
-        +kappa2*inner(v,ubar_knew)*ds 
-        -inner(nue*avg(grad(v)),both(outer(ubar_knew,n)))*dS
-        -inner(both(outer(v,n)),nue*avg(grad(ubar_knew)))*dS
-        +kappa1*inner(both(outer(ubar_knew,n)),both(outer(v,n)))*dS)
+    kappa1=nue*alpha/havg
+    kappa2=nue*gamma/h
+    
+    x, y = SpatialCoordinate(mesh)
+    g_neg=Function(U).project(Constant((0.0,0.0)))
+    g_pos=Function(U).project(as_vector([-x*100*(x-1)/25*U_inf,0]))
+    #g=Constant((0.0,0.0))
+    
+    #a_dg for other sides
+    a_dg=(nue*inner(grad(u),grad(v))*dx
+          -inner(outer(v,n),nue*grad(u))*ds((1,2,3)) 
+          -inner(outer(u,n),nue*grad(v))*ds((1,2,3))
+          +kappa2*inner(v,u)*ds((1,2,3))
+          -inner(nue*avg(grad(v)),both(outer(u,n)))*dS
+          -inner(both(outer(v,n)),nue*avg(grad(u)))*dS
+          +kappa1*inner(both(outer(u,n)),both(outer(v,n)))*dS)
+    
+    #a_dg for lid
+    a_dg+=(
+        -inner(outer(v,n),nue*grad(u-g_pos))*ds((4))
+        -inner(outer(u-g_pos,n),nue*grad(v))*ds((4)) 
+        +kappa2*inner(v,u-g_pos)*ds((4))
+    )
+    
+    #Advection
+    #for lid
+    un = 0.5*(dot(u_linear, n)+ abs(dot(u_linear, n)))
+    
+    adv_dg=(dot(u_linear,div(outer(v,u)))*dx#like paper
+            -dot(v,u*un)*ds(4)#similar to matt piggots
+            -dot((v('+')-v('-')),(un('+')*(u('+')) - un('-')*(u('-'))))*dS)#like in the tutorial
+    
+    #for other thingis
+    #un_neg = 0.5*(dot(u_linear, n)+sign(dot(u_linear, n))*dot(g_neg,n)+abs(dot(g_neg,n))+ abs(dot(u_linear, n)))
+    adv_dg+=-inner(v,u*un)*ds((1,2,3)) #similar to matt piggots
+    ############
 
     #Time derivative
     time=1/Constant(dt)*inner(v_knew-u_n,v)*dx
@@ -155,32 +204,40 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
        # inflow=Function(U).project(inflow_expr)#changed to time dependent
        # infl=DirichletBC(W.sub(0),inflow,2)
         
-        #innerloop for progressing Picard iteration DO WE NEED THIS?
+        #innerloop for progressing Picard iteration
+        nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
+
+        #build problem and solver
+        # predictor
+        print("\n....predictor solve\n")
+        w_pred = Function(W)
+        predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred,[infl,noslip])
+        solver = LinearVariationalSolver(predictor, solver_parameters=parameters)
+       
         counter=0
         dt=theta*dt_max
         while(True):
-
-            #PREDICTOR
-            #build problem and solver (maybe also outside??)
-            print("\n....predictor solve\n")
-            w_pred = Function(W)
-            predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred,[infl,noslip])
-            solver = LinearVariationalSolver(predictor, solver_parameters=parameters)
+            
             solver.solve()
-            usolhat,psolhat=w_pred.split()
-
-           # plot(psolhat)
-           # plt.show()
+            usolhat,psolhat=w_pred.split() 
+            
+            # plot solutionfields
+            plot_velo_pres(Function(U).project(usolhat),Function(P).project(psolhat),"Solution")
 
             #convergence criterion
             eps=errornorm(v_k,usolhat)#l2 by default
             v_k.assign(usolhat)
-            p_k.assign(p_n)#or psolhat???????????
+            p_k.assign(p_n)
             counter+=1
             print("Picard iteration error",eps,", counter: ",counter)
             if(counter>2):
                 print("Picard iteration converged")  
-                break          
+                break      
+            else:
+                #?????????
+                u_linear.project(u1)
+                u1.assign(0.)
+                p1.assign(0.)    
             
         
         dt=dt_max
@@ -235,49 +292,58 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     divtest.project(div(u_n))
     print("Div error",errornorm(divtest,Function(P)))
 
-    return sol
+    N=2 ** mesh_size
+    return w,0,0,N
 
-#########################################################################
-parameters={    
+
+     
+#####################MAIN##########################
+parameters={
+   # "ksp_type": "fgmres",
+   # "ksp_rtol": 1e-8,
+   # "pc_type": "fieldsplit",
+   # "pc_fieldsplit_type": "schur",
+   # "pc_fieldsplit_schur_fact_type": "full",
+   # "fieldsplit_0_ksp_type": "cg",
+    #"fieldsplit_0_pc_type": "ilu",
+   # "fieldsplit_0_ksp_rtol": 1e-8,
+   # "fieldsplit_1_ksp_type": "cg",
+   # "fieldsplit_1_ksp_rtol": 1e-8,
+   # "pc_fieldsplit_schur_precondition": "selfp",
+   # "fieldsplit_1_pc_type": "hypre"
     "ksp_type": "gmres",
-    "ksp_rtol": 1e-8,
-    "pc_type": "fieldsplit",
-    "pc_fieldsplit_type": "schur",
-    "pc_fieldsplit_schur_fact_type": "full",
-    "fieldsplit_0_ksp_type": "preonly",
-    "fieldsplit_0_pc_type": "ilu",
-    "fieldsplit_1_ksp_type": "preonly",
-    "pc_fieldsplit_schur_precondition": "selfp",
-    "fieldsplit_1_pc_type": "hypre"
-    }
+    "ksp_converged_reason": None,
+   "ksp_gmres_restart":500,
+   "ksp_rtol":1e-12,
+     "pc_type":"lu",
+   "pc_factor_mat_solver_type": "mumps",
+   "mat_type":"aij"
+}
 
-refin=range(4,5)
+error_velo=[]
+error_pres=[]
+refin=range(5,6)
+list_N=[]
 for n in refin:#increasing element number
     
     #solve
-    sol= solve_problem(n, parameters,aP=None, block_matrix=False)
-    u,p=sol.split()
+    w,err_u,err_p,N = solve_problem(n, parameters,aP=None, block_matrix=False)
+    u,p=w.split()
+    error_velo.append(err_u)
+    error_pres.append(err_p)
+    list_N.append(N)
 
     
     #plot solutions
-    File("poisson_mixed_velocity_.pvd").write(u)
-    File("poisson_mixed_pressure_.pvd").write(p)
+    File("cavity.pvd").write(u,p)
     try:
         import matplotlib.pyplot as plt
     except:
         warning("Matplotlib not imported")
 
-    #plot solutions
-    try:
-        plot(u)
-        plt.title("Velocity")
-        plt.xlabel("x")
-        plt.ylabel("y")
-        plt.show()
-        plot(p)
-        plt.title("Pressure")
-        plt.xlabel("x")
-        plt.ylabel("y")
-        plt.show()
-    except:
-        warning("Cannot show figure")
+    #try:
+    #    plot_velo_pres(u,p)
+    #except:
+    #    warning("Cannot show figure")
+
+
