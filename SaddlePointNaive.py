@@ -47,6 +47,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     LX=1.0
     LY=1.0
     mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
+    U_inf=1.0
     
     #function spaces
     U = FunctionSpace(mesh, "RTCF",1)
@@ -73,15 +74,16 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     while(True):
 
         #Laplacian
-        alpha=Constant(5)#interior
-        gamma=Constant(5) #exterior
+        alpha=Constant(10)#interior
+        gamma=Constant(10) #exterior
         h=CellVolume(mesh)/FacetArea(mesh)  
         havg=avg(CellVolume(mesh))/FacetArea(mesh)
         kappa1=nue*alpha/havg
         kappa2=nue*gamma/h
 
+        x, y = SpatialCoordinate(mesh)
         g_neg=Function(U).project(Constant((0.0,0.0)))
-        g_pos=Function(U).project(Constant((1.0,0.0)))
+        g_pos=Function(U).project(as_vector([-x*100*(x-1)/25*U_inf,0]))
         #g=Constant((0.0,0.0))
 
         #a_dg for other sides
@@ -94,10 +96,10 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             +kappa1*inner(both(outer(u-g_neg,n)),both(outer(v,n)))*dS((1,2,3)))
 
         #a_dg for lid
-        a_dg+=(#-inner(outer(v,n),nue*grad(g_pos))*ds((4))
+        a_dg+=(-inner(outer(v,n),nue*grad(g_pos))*ds((4))
             -inner(outer(g_pos,n),nue*grad(v))*ds((4)) 
             +kappa2*inner(v,g_pos)*ds((4))
-            -inner(both(outer(v,n)),nue*avg(grad(u)))*dS((4))
+            -inner(both(outer(v,n)),nue*avg(grad(u-g_pos)))*dS((4))
             -inner(nue*avg(grad(v)),both(outer(u-g_pos,n)))*dS((4))
             +kappa1*inner(both(outer(u-g_pos,n)),both(outer(v,n)))*dS((4)))
          
@@ -105,10 +107,10 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         #for lid
         un = 0.5*(dot(u_linear, n)+ abs(dot(u_linear, n)))
         
-        un_pos = 0.5*(dot(u_linear, n)-(dot(g_pos,n))+abs(dot(g_pos,n))+ abs(dot(u_linear, n)))
+        un_pos = 0.5*(dot(u_linear, n)+sign(dot(u_linear,n))*(dot(g_pos,n))+abs(dot(g_pos,n))+ abs(dot(u_linear, n)))
         adv_dg=(dot(u_linear,div(outer(v,u)))*dx#like paper
             -dot(v,u*un_pos)*ds(4)#similar to matt piggots
-            -dot((v('+')-v('-')),(un('+')*(u('+')) - un('-')*(u('-'))))*dS(4))#like in the tutorial
+            -dot((v('+')-v('-')),(un_pos('+')*(u('+')) - un_pos('-')*(u('-'))))*dS(4))#like in the tutorial
     
         #for other thingis
         #un_neg = 0.5*(dot(u_linear, n)+sign(dot(u_linear, n))*dot(g_neg,n)+abs(dot(g_neg,n))+ abs(dot(u_linear, n)))
@@ -117,7 +119,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     
 
         #form
-        eq = a_dg+Constant(-1.)*adv_dg-div(v)*p*dx-div(u)*q*dx
+        eq = a_dg+Constant(-1.)*adv_dg-div(v)*p*dx+div(u)*q*dx
         f=dot(Function(U),v)*dx   
         eq +=f
         a=lhs(eq)
@@ -139,7 +141,7 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
         bc_1.append(bc1)
         bc2=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
         bc_1.append(bc2)
-        bc3=DirichletBC(W.sub(0),Constant((0.0,0.0)),4)#plane y=L
+        bc3=DirichletBC(W.sub(0),Constant((0.0,.0)),4)#plane y=L
         bc_1.append(bc3)
 
         #add nullspace bc all boundaries are specified
@@ -160,11 +162,11 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
             print("Picard iteration converged")  
             break          
         else:
-            u_linear.assign(u1)
+            u_linear.project(u1)
             #one comp has to be set to 0?
 
 
-        # plot error fields
+    # plot solutionfields
     plot_velo_pres(Function(U).project(u1),Function(P).project(p1),"Solution")
    
 
