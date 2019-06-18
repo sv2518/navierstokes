@@ -70,8 +70,6 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     nue=Constant(0.59)#re=40
 
     #specify inflow/solution
-    x,y=SpatialCoordinate(mesh)
-    t=0.0
     inflow_uniform=Function(U).project(Constant((0.0,0.0))) 
 
     #boundary conditions
@@ -82,13 +80,17 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     bc_1.append(bc1)
     bc2=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
     bc_1.append(bc2)
-    bc3=DirichletBC(W.sub(0),Constant((0.0,.0)),4)#plane y=L
+    bc3=DirichletBC(W.sub(0),Constant((0.0,0.0)),4)#plane y=L
     bc_1.append(bc3)
 
     #intial values
-    p_n= Function(P).project(-8*1.5*(2-x))#pres for init time step #??????
-    u_n=Function(U).assign(inflow) #velo for init time step
-    v_k=Function(U).assign(u_n)#init Picard value vk=un
+
+    #calculate inital value for pressure with potential flow
+    
+
+    #with that initial value calculate intial pressure
+
+
 
 
     #solve the following problem for initial values
@@ -108,6 +110,10 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
 
 ################
 
+   
+    p_n= Function(P).assign(p_init_sol)#pres for init time step #??????
+    u_n=Function(U).assign(u_init_sol) #velo for init time step
+    v_k=Function(U).assign(u_n)#init Picard value vk=un
     p_k=Function(P).assign(p_n)#init Picard value vk=un
 
     ubar_k=Constant(0.5)*(u_n+v_k) #init old midstep
