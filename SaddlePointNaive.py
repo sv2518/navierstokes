@@ -196,7 +196,6 @@ def buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt):
     p_n= Function(P).assign(p_init_sol)#pres for init time step #??????
     u_n=Function(U).assign(u_init_sol) #velo for init time step
     v_k=Function(U).assign(u_n)#init Picard value vk=un
-    p_k=Function(P).assign(p_n)#init Picard value vk=un
 
     ubar_k=Constant(0.5)*(u_n+v_k) #init old midstep
     ubar_knew=Constant(0.5)*(u_n+v_knew) #init new midstep
@@ -251,14 +250,13 @@ def buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt):
     incomp_dg=div(v_knew)*q*dx
     
     #Body Force 
-    f=Function(U)
-    force_dg =dot(f,v)*dx
+    force_dg =dot(Function(U),v)*dx
 
     #TODO: FORMS------------------------------------------- 
-    eq=time+adv_dg-lapl_dg-force_dg-incomp_dg
+    eq=time+adv_dg-lapl_dg-force_dg
 
     #form for predictor
-    pres_dg_pred=div(v)*p_k*dx
+    pres_dg_pred=div(v)*p_n*dx
     eq_pred=eq+pres_dg_pred
 
     return eq_pred,v_k,u_n,p_n
@@ -278,19 +276,22 @@ def buildPressureForm(W,U,P,dt,mesh,U_inf):
     incomp_dg_pres=div(w)*q*dx
     pres_dg_pres=div(v)*beta*dx
     
-    eq_pres=dot(w,v)*dx-dot(w-g_pos,v)*ds-force_dg_pres-1/dt*incomp_dg_pres+pres_dg_pres #dt somewhere in here??
+    eq_pres=dot(w,v)*dx-dot(g_pos,v)*ds-force_dg_pres-1*incomp_dg_pres+pres_dg_pres #dt somewhere in here??
 
     return eq_pres,v_knew_hat
 
-def buildCorrectorForm(W,U,P,dt):
+def buildCorrectorForm(W,U,P,dt,mesh,U_inf):
     print("....build corrector")
     v_knew,p_knew=TrialFunctions(W)
     v,q=TestFunctions(W)
 
+    #x, y = SpatialCoordinate(mesh)
+   # g_pos=Function(U).project(as_vector([-x*100*(x-1)/25*U_inf,0]))
+
     v_knew_hat2=Function(U)
     beta=Function(P)
 
-    eq_corr=(dot(v_knew,v)-dot(v_knew_hat2,v)-1/dt*div(v_knew_hat2)*q+dt*dot(grad(beta),v))*dx
+    eq_corr=(dot(v_knew,v)-dot(v_knew_hat2,v)-dt*div(v_knew)*q+dt*dot(grad(beta),v))*dx
 
     return eq_corr,v_knew_hat2,beta
 
@@ -303,8 +304,8 @@ def solve_problem(mesh_size, parameters_1,parameters_2, aP=None, block_matrix=Fa
     U_inf=Constant(1.0)
     
     #max dx is 0.05 min dx is 0.001
-    dt=0.00000001 #for lower Reynoldnumber lower dt??
-    T=0.00000002
+    dt=0.00001 #for lower Reynoldnumber lower dt??
+    T=0.00003
     
 
     #function spaces
@@ -319,7 +320,7 @@ def solve_problem(mesh_size, parameters_1,parameters_2, aP=None, block_matrix=Fa
 	
     #normal and essentially reynolds number
     n=FacetNormal(W.mesh())
-    nue=Constant(1)#re=40
+    nue=Constant(0.59)#re=40
 
     #boundary conditions
     bc=[]
@@ -344,7 +345,7 @@ def solve_problem(mesh_size, parameters_1,parameters_2, aP=None, block_matrix=Fa
     print("\nBUILD FORMS")#####################################################################
     eq_pred,v_k,u_n,p_n=buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt)
     eq_pres,v_knew_hat=buildPressureForm(W,U,P,dt,mesh,U_inf)
-    eq_corr,v_knew_hat2,beta=buildCorrectorForm(W,U,P,dt)
+    eq_corr,v_knew_hat2,beta=buildCorrectorForm(W,U,P,dt,mesh,U_inf)
 
 
     print("\nTIME PROGRESSING")################################################################
@@ -393,23 +394,12 @@ def solve_problem(mesh_size, parameters_1,parameters_2, aP=None, block_matrix=Fa
         v_knew_hat.assign(usolhat)
         w_pres = Function(W)
         nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
-        bc_1=[]
-        bc0=DirichletBC(W.sub(0),Constant((0.0,0.0)),1)
-        bc_1.append(bc0)
-        bc1=DirichletBC(W.sub(0),Constant((0.0,0.0)),2)#plane x=0
-        bc_1.append(bc1)
-        bc2=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
-        bc_1.append(bc2)
-        bc3=DirichletBC(W.sub(0),Constant((0.0,0.0)),4)#plane y=L
-        bc_1.append(bc3)
-        #bc4=DirichletBC(W.sub(1),Constant(0.0),3)
-        #bc_1.append(bc4)
         pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres,bc)#BC RIGHT???
-        solver = LinearVariationalSolver(pressure,nullspace=nullspace,solver_parameters=parameters_2)
+        solver = LinearVariationalSolver(pressure,nullspace=nullspace,solver_parameters=parameters_1)
         solver.solve()
         wsol,betasol=w_pres.split()
         print(assemble(betasol).dat.data)
-        p_knew=Function(P).project(p_n+betasol/dt)
+        p_knew=Function(P).project(p_n+betasol)
 
         plot(p_knew)
         plt.show()
@@ -417,12 +407,12 @@ def solve_problem(mesh_size, parameters_1,parameters_2, aP=None, block_matrix=Fa
 
         print("\n3) CORRECTOR")##############################################################
         #first update corrector form        
-        v_knew_hat.assign(usolhat)
+        v_knew_hat2.assign(usolhat)
         beta.assign(betasol)
         
         w_corr = Function(W)
         corrector= LinearVariationalProblem(lhs(eq_corr),rhs(eq_corr), w_corr,bc)
-        solver = LinearVariationalSolver(corrector, nullspace=nullspace,solver_parameters=parameters_1)
+        solver = LinearVariationalSolver(corrector, nullspace=nullspace,solver_parameters=parameters_2)
         solver.solve()
         usol,psol=w_corr.split()
 
@@ -440,6 +430,10 @@ def solve_problem(mesh_size, parameters_1,parameters_2, aP=None, block_matrix=Fa
         #update for next time step
         u_n.assign(usol)
         p_n.assign(p_knew)
+        usol.assign(0.)
+        psol.assign(0.)    
+        wsol.assign(0.)
+        betasol.assign(0.)    
 
         t += dt      
 
