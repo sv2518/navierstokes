@@ -42,7 +42,7 @@ def plot_convergence_velo_pres(error_velo,error_pres,list_N):
     plt.show()
 
     #INITAL VALUES: solve the following from for initial values
-def initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters):
+def initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters,dt):
     print("....Solving Stokes problem for initial velocity ....")
 
     #Functions and parameters
@@ -89,7 +89,7 @@ def initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters):
     )
 
 
-    eq_init=dot(u,v)*dx-dot(f_pres,q)*dx-div(u)*q*dx-div(v)*p*dx+a_dg#dt somewhere in here??
+    eq_init=dot(u,v)*dx-dot(f_pres,q)*dx-1/dt*div(u)*q*dx-div(v)*p*dx+a_dg#dt somewhere in here??
  #########include gpos somewhere else her??????
 
     #solve
@@ -268,13 +268,17 @@ def buildPressureForm(W,U,P,dt):
     w,beta = TrialFunctions(W)
     v,q = TestFunctions(W)
 
+    x, y = SpatialCoordinate(mesh)
+    g_pos=Function(U).project(as_vector([-x*100*(x-1)/25*U_inf,0]))
+
+
     v_knew_hat=Function(U)
     f_pres=Function(P).project(div(v_knew_hat)) 
     force_dg_pres=dot(f_pres,q)*dx#sign right?
     incomp_dg_pres=div(w)*q*dx
     pres_dg_pres=div(v)*beta*dx
     
-    eq_pres=dot(w,v)*dx-force_dg_pres-1/dt*incomp_dg_pres+pres_dg_pres #dt somewhere in here??
+    eq_pres=dot(w,v)*dx-dot(w-g_pos,v)*ds-force_dg_pres-1/dt*incomp_dg_pres+pres_dg_pres #dt somewhere in here??
 
     return eq_pres,v_knew_hat
 
@@ -286,7 +290,7 @@ def buildCorrectorForm(W,U,P,dt):
     v_knew_hat2=Function(U)
     beta=Function(P)
 
-    eq_corr=(dot(v_knew,v)-dot(v_knew_hat2,v)-dt*dot(grad(beta),v))*dx
+    eq_corr=(dot(v_knew,v)-dot(v_knew_hat2,v)-1/dt*div(v_knew_hat2)*q+dt*dot(grad(beta),v))*dx
 
     return eq_corr,v_knew_hat2,beta
 
@@ -299,8 +303,8 @@ def solve_problem(mesh_size, parameters_1,parameters_2, aP=None, block_matrix=Fa
     U_inf=Constant(1.0)
     
     #max dx is 0.05 min dx is 0.001
-    dt=0.00001 #for lower Reynoldnumber lower dt??
-    T=0.00002
+    dt=0.00000001 #for lower Reynoldnumber lower dt??
+    T=0.00000002
     
 
     #function spaces
@@ -330,7 +334,7 @@ def solve_problem(mesh_size, parameters_1,parameters_2, aP=None, block_matrix=Fa
 
     print("\nCALCULATE INITIAL VALUES")########################################################
     #calculate inital value for pressure with potential flow
-    u_init_sol=initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters_2)
+    u_init_sol=initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters_2,dt)
 
     #with that initial value calculate intial pressure 
     # with Poission euqation including some non-divergence free velocity
@@ -353,8 +357,8 @@ def solve_problem(mesh_size, parameters_1,parameters_2, aP=None, block_matrix=Fa
 
         #build problem and solver
         w_pred = Function(W)
-        predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred,bc)
-        solver = LinearVariationalSolver(predictor, nullspace=nullspace,solver_parameters=parameters_1)
+        predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred)
+        solver = LinearVariationalSolver(predictor, solver_parameters=parameters_1)
        
         counter=0
 
@@ -389,8 +393,19 @@ def solve_problem(mesh_size, parameters_1,parameters_2, aP=None, block_matrix=Fa
         v_knew_hat.assign(usolhat)
         w_pres = Function(W)
         nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
-        pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres)#BC RIGHT???
-        solver = LinearVariationalSolver(pressure,nullspace=nullspace,solver_parameters=parameters_1)
+        bc_1=[]
+        bc0=DirichletBC(W.sub(0),Constant((0.0,0.0)),1)
+        bc_1.append(bc0)
+        bc1=DirichletBC(W.sub(0),Constant((0.0,0.0)),2)#plane x=0
+        bc_1.append(bc1)
+        bc2=DirichletBC(W.sub(0),Constant((0.0,0.0)),3)#plane y=0
+        bc_1.append(bc2)
+        bc3=DirichletBC(W.sub(0),Constant((0.0,0.0)),4)#plane y=L
+        bc_1.append(bc3)
+        #bc4=DirichletBC(W.sub(1),Constant(0.0),3)
+        #bc_1.append(bc4)
+        pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres,bc_1)#BC RIGHT???
+        solver = LinearVariationalSolver(pressure,nullspace=nullspace,solver_parameters=parameters_2)
         solver.solve()
         wsol,betasol=w_pres.split()
         print(assemble(betasol).dat.data)
@@ -406,8 +421,8 @@ def solve_problem(mesh_size, parameters_1,parameters_2, aP=None, block_matrix=Fa
         beta.assign(betasol)
         
         w_corr = Function(W)
-        corrector= LinearVariationalProblem(lhs(eq_corr),rhs(eq_corr), w_corr)
-        solver = LinearVariationalSolver(corrector, solver_parameters=parameters_1)
+        corrector= LinearVariationalProblem(lhs(eq_corr),rhs(eq_corr), w_corr,bc)
+        solver = LinearVariationalSolver(corrector, nullspace=nullspace,solver_parameters=parameters_1)
         solver.solve()
         usol,psol=w_corr.split()
 
@@ -434,7 +449,7 @@ def solve_problem(mesh_size, parameters_1,parameters_2, aP=None, block_matrix=Fa
 
     divtest=Function(P)
     divtest.project(div(u_n))
-    print("Div error",errornorm(divtest,Function(P)))
+    print("Div error of final solution",errornorm(divtest,Function(P)))
 
     N=2 ** mesh_size
     return sol,0,0,N
