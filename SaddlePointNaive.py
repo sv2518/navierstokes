@@ -263,7 +263,7 @@ def buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt):
 
     return eq_pred,v_k,u_n,p_n
 
-def buildPressureForm(W,U,P,dt):
+def buildPressureForm(W,U,P,dt,mesh,U_inf):
     print("....build pressure update")
     w,beta = TrialFunctions(W)
     v,q = TestFunctions(W)
@@ -343,7 +343,7 @@ def solve_problem(mesh_size, parameters_1,parameters_2, aP=None, block_matrix=Fa
 
     print("\nBUILD FORMS")#####################################################################
     eq_pred,v_k,u_n,p_n=buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt)
-    eq_pres,v_knew_hat=buildPressureForm(W,U,P,dt)
+    eq_pres,v_knew_hat=buildPressureForm(W,U,P,dt,mesh,U_inf)
     eq_corr,v_knew_hat2,beta=buildCorrectorForm(W,U,P,dt)
 
 
@@ -404,7 +404,7 @@ def solve_problem(mesh_size, parameters_1,parameters_2, aP=None, block_matrix=Fa
         bc_1.append(bc3)
         #bc4=DirichletBC(W.sub(1),Constant(0.0),3)
         #bc_1.append(bc4)
-        pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres,bc_1)#BC RIGHT???
+        pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres,bc)#BC RIGHT???
         solver = LinearVariationalSolver(pressure,nullspace=nullspace,solver_parameters=parameters_2)
         solver.solve()
         wsol,betasol=w_pres.split()
