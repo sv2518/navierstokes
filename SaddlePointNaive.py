@@ -42,7 +42,7 @@ def plot_convergence_velo_pres(error_velo,error_pres,list_N):
     plt.show()
 
     #INITAL VALUES: solve the following from for initial values
-def initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters,dt):
+def initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters,dt,bc_tang):
     print("....Solving Stokes problem for initial velocity ....")
 
     #Functions and parameters
@@ -70,8 +70,7 @@ def initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters,dt):
     kappa2=nue*gamma/h
     
     x, y = SpatialCoordinate(mesh)
-    g_pos=Function(U).project(as_vector([-x*100*(x-1)/25*U_inf,0]))
-    
+
     #a_dg for other sides
     a_dg=(nue*inner(grad(u),grad(v))*dx
           -inner(outer(v,n),nue*grad(u))*ds((1,2,3)) 
@@ -83,13 +82,13 @@ def initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters,dt):
     
     #a_dg for lid
     a_dg+=(
-        -inner(outer(v,n),nue*grad(u-g_pos))*ds((4))
-        -inner(outer(u-g_pos,n),nue*grad(v))*ds((4)) 
-        +kappa2*inner(v,u-g_pos)*ds((4))
+        -inner(outer(v,n),nue*grad(u-bc_tang))*ds((4))
+        -inner(outer(u-bc_tang,n),nue*grad(v))*ds((4)) 
+        +kappa2*inner(v,u-bc_tang)*ds((4))
     )
 
 
-    eq_init=dot(u,v)*dx-dot(f_pres,q)*dx-1/dt*div(u)*q*dx-div(v)*p*dx+a_dg#dt somewhere in here??
+    eq_init=dot(u,v)*dx-dot(f_pres,q)*dx-1/dt*div(u)*q*dx+div(v)*p*dx+a_dg#dt somewhere in here??
  #########include gpos somewhere else her??????
 
     #solve
@@ -102,7 +101,7 @@ def initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters,dt):
     
     return u_init_sol
 
-def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters,dt):
+def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters,dt,bc_tang):
     print("....Solving problem for initial pressure ....")
 
     print(".........part1: solve for some non-divergence free velocity field")
@@ -121,9 +120,6 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters,dt):
     kappa1=nue*alpha/havg
     kappa2=nue*gamma/h
     
-    x, y = SpatialCoordinate(mesh)
-    g_pos=Function(U).project(as_vector([-x*100*(x-1)/25*U_inf,0]))
-    
     #laplacian for other sides
     a_dg=(
         nue*inner(grad(u),grad(v))*dx
@@ -137,15 +133,15 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters,dt):
     
     #laplacian for lid
     a_dg+=(
-        -inner(outer(v,n),nue*grad(u-g_pos))*ds((4))
-        -inner(outer(u-g_pos,n),nue*grad(v))*ds((4)) 
-        +kappa2*inner(v,u-g_pos)*ds((4))
+        -inner(outer(v,n),nue*grad(u-bc_tang))*ds((4))
+        -inner(outer(u-bc_tang,n),nue*grad(v))*ds((4)) 
+        +kappa2*inner(v,u-bc_tang)*ds((4))
     )
 
     #Advection
     #for lid
     u_linear=Function(U).assign(u_init)
-    un_pos = 0.5*(dot(u_linear, n)+sign(dot(u_linear, n))*dot(g_pos,n)+abs(dot(g_pos,n))+ abs(dot(u_linear, n)))
+    un_pos = 0.5*(dot(u_linear, n)+sign(dot(u_linear, n))*dot(bc_tang,n)+abs(dot(bc_tang,n))+ abs(dot(u_linear, n)))
     un = 0.5*(dot(u_linear, n)+ abs(dot(u_linear, n)))    
     adv_dg=(
         dot(u_linear,div(outer(v,u)))*dx#like paper
@@ -172,7 +168,7 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters,dt):
     f_pres=Function(P).project(div(F_init_sol)) 
     force_dg_pres=dot(f_pres,q)*dx#sign right?
     incomp_dg_pres=div(w)*q*dx
-    pres_dg_pres=div(v)*beta*dx    
+    pres_dg_pres=-div(v)*beta*dx    
     eq_pres=dot(w,v)*dx-force_dg_pres-1/dt*incomp_dg_pres+pres_dg_pres #dt somewhere in here??
 
 
@@ -185,7 +181,7 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters,dt):
  
     return p_init_sol
 
-def buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt):
+def buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt,bc_tang):
     print("....build predictor")
 
     v_knew,pk_new=TrialFunctions(W)
@@ -195,7 +191,7 @@ def buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt):
     #function
     p_n= Function(P).assign(p_init_sol)#pres for init time step #??????
     u_n=Function(U).assign(u_init_sol) #velo for init time step
-    v_k=Function(U).assign(u_n)#init Picard value vk=un
+    v_k=Function(U)#init Picard value vk=un
 
     ubar_k=Constant(0.5)*(u_n+v_k) #init old midstep
     ubar_knew=Constant(0.5)*(u_n+v_knew) #init new midstep
@@ -208,9 +204,6 @@ def buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt):
     kappa1=nue*alpha/havg
     kappa2=nue*gamma/h
     
-    x, y = SpatialCoordinate(mesh)
-    g_pos=Function(U).project(Constant((0.0,0.00)))
-    
     #lapl_dg for other sides
     lapl_dg=(nue*inner(grad(ubar_knew),grad(v))*dx
           -inner(outer(v,n),nue*grad(ubar_knew))*ds((1,2,3)) 
@@ -222,16 +215,16 @@ def buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt):
     
     #lapl_dg for lid
     lapl_dg+=(
-        -inner(outer(v,n),nue*grad(ubar_knew-g_pos))*ds((4))
-        -inner(outer(ubar_knew-g_pos,n),nue*grad(v))*ds((4)) 
-        +kappa2*inner(v,ubar_knew-g_pos)*ds((4))
+        -inner(outer(v,n),nue*grad(ubar_knew-bc_tang))*ds((4))
+        -inner(outer(ubar_knew-bc_tang,n),nue*grad(v))*ds((4)) 
+        +kappa2*inner(v,ubar_knew-bc_tang)*ds((4))
     )
     
     #Advection adv_dg
     #for Picard iteration
     u_linear=Function(U).assign(ubar_k)
     un = 0.5*(dot(u_linear, n)+ abs(dot(u_linear, n))) 
-    un_pos = 0.5*(dot(u_linear, n)+sign(dot(u_linear, n))*dot(g_pos,n)+abs(dot(g_pos,n))+ abs(dot(u_linear, n)))
+    un_pos = 0.5*(dot(u_linear, n)+sign(dot(u_linear, n))*dot(bc_tang,n)+abs(dot(bc_tang,n))+ abs(dot(u_linear, n)))
    
     #for lid
     adv_dg=(dot(u_linear,div(outer(v,ubar_knew)))*dx#like paper
@@ -241,13 +234,9 @@ def buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt):
     #for other thingis
     adv_dg+=-inner(v,ubar_knew*un)*ds((1,2,3)) #similar to matt piggots
 
-    ###
-
     #Time derivative
     time=1/Constant(dt)*inner(v_knew-u_n,v)*dx
 
-    #Incompressibility
-    incomp_dg=div(v_knew)*q*dx
     
     #Body Force 
     force_dg =dot(Function(U),v)*dx
@@ -256,27 +245,25 @@ def buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt):
     eq=time+adv_dg-lapl_dg-force_dg
 
     #form for predictor
-    pres_dg_pred=div(v)*p_n*dx
+    pres_dg_pred=-div(v)*p_n*dx #negative bc integration by parts!
     eq_pred=eq+pres_dg_pred
 
     return eq_pred,v_k,u_n,p_n
 
-def buildPressureForm(W,U,P,dt,mesh,U_inf):
+def buildPressureForm(W,U,P,dt,mesh,U_inf,bc_tang):
     print("....build pressure update")
+
+    bc_tang=Function(U).assign(bc_tang)
     w,beta = TrialFunctions(W)
     v,q = TestFunctions(W)
-
-    x, y = SpatialCoordinate(mesh)
-    g_pos=Function(U).project(as_vector([-x*100*(x-1)/25*U_inf,0]))
-
 
     v_knew_hat=Function(U)
     f_pres=Function(P).project(div(v_knew_hat)) 
     force_dg_pres=dot(f_pres,q)*dx#sign right?
     incomp_dg_pres=div(w)*q*dx
-    pres_dg_pres=div(v)*beta*dx
+    pres_dg_pres=-div(v)*beta*dx
     
-    eq_pres=dot(w,v)*dx-dot(g_pos,v)*ds-force_dg_pres-1*incomp_dg_pres+pres_dg_pres #dt somewhere in here??
+    eq_pres=dot(w,v)*dx-dot(bc_tang,v)*ds-1/dt*force_dg_pres+1/dt*incomp_dg_pres+1/dt*pres_dg_pres #dt somewhere in here??
 
     return eq_pres,v_knew_hat
 
@@ -285,27 +272,31 @@ def buildCorrectorForm(W,U,P,dt,mesh,U_inf):
     v_knew,p_knew=TrialFunctions(W)
     v,q=TestFunctions(W)
 
-    #x, y = SpatialCoordinate(mesh)
-   # g_pos=Function(U).project(as_vector([-x*100*(x-1)/25*U_inf,0]))
-
     v_knew_hat2=Function(U)
     beta=Function(P)
 
-    eq_corr=(dot(v_knew,v)-dot(v_knew_hat2,v)-dt*div(v_knew)*q+dt*dot(grad(beta),v))*dx
+    eq_corr=(
+            1/dt*dot(v_knew,v)*dx
+            -1/dt*dot(v_knew_hat2,v)*dx
+            -div(v_knew)*q*dx
+            -beta*div(v)*dx
+    )
 
     return eq_corr,v_knew_hat2,beta
 
 
 def solve_problem(mesh_size, parameters_1,parameters_2, aP=None, block_matrix=False):
+    outfile=File("cavity.pvd")
+
     #generate mesh
     LX=1.0
     LY=1.0
     mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
-    U_inf=Constant(1.0)
+    U_inf=Constant(100)
     
     #max dx is 0.05 min dx is 0.001
-    dt=0.00001 #for lower Reynoldnumber lower dt??
-    T=0.00003
+    dt=0.00001 #if higher dt predictor crashes
+    T=10
     
 
     #function spaces
@@ -320,7 +311,7 @@ def solve_problem(mesh_size, parameters_1,parameters_2, aP=None, block_matrix=Fa
 	
     #normal and essentially reynolds number
     n=FacetNormal(W.mesh())
-    nue=Constant(0.59)#re=40
+    nue=Constant(1)
 
     #boundary conditions
     bc=[]
@@ -333,60 +324,81 @@ def solve_problem(mesh_size, parameters_1,parameters_2, aP=None, block_matrix=Fa
     bc3=DirichletBC(W.sub(0),Constant((0.0,0.0)),4)#plane y=L
     bc.append(bc3)
 
+    
+    t=0.1
+    x, y = SpatialCoordinate(mesh)
+    bc_tang=Function(U).project(as_vector([-x*100*(x-1)/25*U_inf*t,0]))
+
     print("\nCALCULATE INITIAL VALUES")########################################################
+
     #calculate inital value for pressure with potential flow
-    u_init_sol=initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters_2,dt)
+    u_init_sol=initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters_2,dt,bc_tang)
 
     #with that initial value calculate intial pressure 
     # with Poission euqation including some non-divergence free velocity
-    p_init_sol=initialPressure(W,U,P,mesh,nue,bc,u_init_sol,U_inf,parameters_1,dt)
-    p_n=Function(P).assign(p_init_sol)
+    p_init_sol=initialPressure(W,U,P,mesh,nue,bc,u_init_sol,U_inf,parameters_1,dt,bc_tang)
+
 
     print("\nBUILD FORMS")#####################################################################
-    eq_pred,v_k,u_n,p_n=buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt)
-    eq_pres,v_knew_hat=buildPressureForm(W,U,P,dt,mesh,U_inf)
+    eq_pred,v_k,u_n,p_n=buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt,bc_tang)
+    eq_pres,v_knew_hat=buildPressureForm(W,U,P,dt,mesh,U_inf,bc_tang)
     eq_corr,v_knew_hat2,beta=buildCorrectorForm(W,U,P,dt,mesh,U_inf)
+
+    u_n=Function(U).assign(u_init_sol)
+    p_n=Function(P).assign(p_init_sol)
+
+    outfile.write(u_n,p_n,time=0)
+
+    divtest=Function(P).project(div(u_n))
+    print("Div error of initial velocity",errornorm(divtest,Function(P)))
+
+
+    ####
+    w_pred = Function(W)
+    predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred)
+    solver_pred = LinearVariationalSolver(predictor, solver_parameters=parameters_1)
 
 
     print("\nTIME PROGRESSING")################################################################
     #outerloop for time progress
-    t = dt
+    t = 2
     while t < T :
+
+        inflow=x*100*(x-1)/25*U_inf*t*0.1### why is my inflow getting lower
+        
+        bc_tang.project(as_vector([inflow,0]))
         
         #innerloop for progressing Picard iteration
         nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
 
         #build problem and solver
-        w_pred = Function(W)
-        predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred)
-        solver = LinearVariationalSolver(predictor, solver_parameters=parameters_1)
        
         counter=0
+        v_k.project(u_n)
+
 
         print("\n1)PREDICTOR")##################################################################
-        while(True):
-            
-            solver.solve()
+        while(True):           
+         
+            solver_pred.solve()
             usolhat,psolhat=w_pred.split() 
 
             #convergence criterion
             eps=errornorm(v_k,usolhat)#l2 by default          
             counter+=1
-            print("Picard iteration error",eps,", counter: ",counter)
-            if(counter>1):
+            print("Picard iteration counter: ",counter)
+            if(counter>5):
                 print("Picard iteration converged")  
                 break      
             else:
                 v_k.assign(usolhat)# is this actually enough??
-                usolhat.assign(0.)
-                psolhat.assign(0.)    
             
         plot(usolhat)
         plt.show()
-
-        divtest=Function(P)
-        divtest.project(div(usolhat))
+        
+        divtest=Function(P).project(div(usolhat))
         print("Div error of predictor velocity",errornorm(divtest,Function(P)))
+
         
     
         print("\n2) PRESSURE UPDATE")#########################################################
@@ -399,7 +411,7 @@ def solve_problem(mesh_size, parameters_1,parameters_2, aP=None, block_matrix=Fa
         solver.solve()
         wsol,betasol=w_pres.split()
         print(assemble(betasol).dat.data)
-        p_knew=Function(P).project(p_n+betasol)
+        p_knew=Function(P).assign(p_n+betasol/dt)
 
         plot(p_knew)
         plt.show()
@@ -408,11 +420,11 @@ def solve_problem(mesh_size, parameters_1,parameters_2, aP=None, block_matrix=Fa
         print("\n3) CORRECTOR")##############################################################
         #first update corrector form        
         v_knew_hat2.assign(usolhat)
-        beta.assign(betasol)
+        beta.assign(betasol/dt)
         
         w_corr = Function(W)
         corrector= LinearVariationalProblem(lhs(eq_corr),rhs(eq_corr), w_corr,bc)
-        solver = LinearVariationalSolver(corrector, nullspace=nullspace,solver_parameters=parameters_2)
+        solver = LinearVariationalSolver(corrector, nullspace=nullspace,solver_parameters=parameters_1)
         solver.solve()
         usol,psol=w_corr.split()
 
@@ -421,21 +433,23 @@ def solve_problem(mesh_size, parameters_1,parameters_2, aP=None, block_matrix=Fa
         plt.xlabel("x")
         plt.ylabel("y")
         plt.show()
-        plot(p_knew)
-        plt.title("Pressure")
-        plt.xlabel("x")
-        plt.ylabel("y")
-        plt.show()
+
+
+        divtest=Function(P).project(div(usol))
+        print("Div error of corrector velocity",errornorm(divtest,Function(P)))
+       # print(errornorm())
 
         #update for next time step
         u_n.assign(usol)
         p_n.assign(p_knew)
-        usol.assign(0.)
-        psol.assign(0.)    
-        wsol.assign(0.)
-        betasol.assign(0.)    
+        usol=Function(U)
+        psol=Function(P)
+        wsol=Function(U)
+        betasol=Function(P)
 
-        t += dt      
+        outfile.write(u_n,p_n,time=t)
+
+        t += 1     
 
     sol=Function(W)
     sol.sub(0).assign(u_n)
@@ -453,15 +467,15 @@ def solve_problem(mesh_size, parameters_1,parameters_2, aP=None, block_matrix=Fa
 #####################MAIN##########################
 parameters_1={
     "ksp_type": "fgmres",
-    "ksp_rtol": 1e-8,
+    "ksp_rtol": 1e-4,
     "pc_type": "fieldsplit",
     "pc_fieldsplit_type": "schur",
     "pc_fieldsplit_schur_fact_type": "full",
     "fieldsplit_0_ksp_type": "cg",
    "fieldsplit_0_pc_type": "ilu",
-    "fieldsplit_0_ksp_rtol": 1e-8,
+    "fieldsplit_0_ksp_rtol": 1e-4,
     "fieldsplit_1_ksp_type": "cg",
-    "fieldsplit_1_ksp_rtol": 1e-8,
+    "fieldsplit_1_ksp_rtol": 1e-4,
     "pc_fieldsplit_schur_precondition": "selfp",
     "fieldsplit_1_pc_type": "hypre"
 }
@@ -490,8 +504,6 @@ for n in refin:#increasing element number
     list_N.append(N)
 
     
-    #plot solutions
-    File("cavity.pvd").write(u,p)
     try:
         import matplotlib.pyplot as plt
     except:
