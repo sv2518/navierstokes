@@ -88,7 +88,7 @@ def initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters,dt,bc_tang):
     )
 
 
-    eq_init=dot(u,v)*dx-dot(f_pres,q)*dx-1/dt*div(u)*q*dx+div(v)*p*dx+a_dg#dt somewhere in here??
+    eq_init=dot(u,v)*dx-dot(f_pres,q)*dx-div(u)*q*dx-div(v)*p*dx+a_dg#dt somewhere in here??
  #########include gpos somewhere else her??????
 
     #solve
@@ -152,7 +152,7 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters,dt,bc_tang):
     #for other thingis
     adv_dg+=-inner(v,u*un)*ds((1,2,3)) #similar to matt piggots
 
-    eq_init=dot(v,F)*dx+adv_dg-a_dg####do we need to include divergence here??
+    eq_init=dot(v,F)*dx+adv_dg+a_dg####do we need to include divergence here??
 
     #solve
     w_init= Function(W)
@@ -168,8 +168,8 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters,dt,bc_tang):
     f_pres=Function(P).project(div(F_init_sol)) 
     force_dg_pres=dot(f_pres,q)*dx#sign right?
     incomp_dg_pres=div(w)*q*dx
-    pres_dg_pres=-div(v)*beta*dx    
-    eq_pres=dot(w,v)*dx-force_dg_pres-1/dt*incomp_dg_pres+pres_dg_pres #dt somewhere in here??
+    pres_dg_pres=-div(v)*beta*dx
+    eq_pres=dot(w,v)*dx-force_dg_pres+incomp_dg_pres+pres_dg_pres #dt somewhere in here??
 
 
     w_init= Function(W)
@@ -219,7 +219,7 @@ def buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt,bc_tang,v_k
     #Advection adv_dg
     #for Picard iteration
     un = 0.5*(dot(ubar_k, n)+ abs(dot(ubar_k, n))) 
-    un_pos = 0.5*(dot(ubar_k, n)-sign(dot(ubar_k, n))*dot(bc_tang,n)+abs(dot(bc_tang,n))+ abs(dot(ubar_k, n)))
+    un_pos = 0.5*(dot(ubar_k, n)+sign(dot(ubar_k, n))*dot(bc_tang,n)+abs(dot(bc_tang,n))+ abs(dot(ubar_k, n)))
    
     #for lid
     adv_dg=(dot(ubar_k,div(outer(v,ubar_knew)))*dx#like paper
@@ -237,10 +237,10 @@ def buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt,bc_tang,v_k
     force_dg =dot(Function(U),v)*dx
 
     #TODO: FORMS------------------------------------------- 
-    eq=time+adv_dg-lapl_dg-force_dg
+    eq=time-adv_dg-lapl_dg-force_dg
 
     #form for predictor
-    pres_dg_pred=-div(v)*p_n*dx+dot(n,p_n*v)*ds(4) #negative bc integration by parts!
+    pres_dg_pred=-div(v)*p_n*dx#negative bc integration by parts!
     eq_pred=eq+pres_dg_pred
 
     return eq_pred
@@ -255,7 +255,7 @@ def buildPressureForm(W,U,P,dt,mesh,U_inf,bc_tang,div_old):
     incomp_dg_pres=div(w)*q*dx
     pres_dg_pres=-div(v)*beta*dx
     
-    eq_pres=dot(w,v)*dx-force_dg_pres+1/dt*incomp_dg_pres+pres_dg_pres 
+    eq_pres=dot(w,v)*dx+1/(dt)*force_dg_pres-incomp_dg_pres+pres_dg_pres 
     #bctang
 
     return eq_pres
@@ -268,7 +268,7 @@ def buildCorrectorForm(W,U,P,dt,mesh,U_inf,v_knew_hat,beta):
     eq_corr=(
             dot(v_knew,v)*dx
             -dot(v_knew_hat,v)*dx
-           # +div(v_knew)*q*dx
+            #-dt*div(v_knew)*q*dx no need to be included because used before?
             -dt*beta*div(v)*dx
     )
 
@@ -282,11 +282,8 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
     LX=1.0
     LY=1.0
     mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
-    U_inf=Constant(10)
-    
-    #max dx is 0.05 min dx is 0.001
-    dt=0.0000001 #if higher dt predictor crashes
-    T=50
+    U_inf=Constant(1)
+   
     
 
     #function spaces
@@ -301,7 +298,11 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
 	
     #normal and essentially reynolds number
     n=FacetNormal(W.mesh())
-    nue=Constant(1)
+    nu=0.1
+    nue=Constant(nu) 
+    dt=0.0000001#0.0000001/(nu*(2 ** mesh_size)**2) #if higher dt predictor crashes
+    T=20
+    print("dt is: ",dt)
 
     #boundary conditions
     bc=[]
@@ -317,7 +318,7 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
     
     t=1
     x, y = SpatialCoordinate(mesh)
-    bc_tang=Function(U).project(as_vector([-x*100*(x-1)/25*U_inf*cos(t*pi/3),0]))
+    bc_tang=Function(U).project(as_vector([-x*100*(x-1)/25*U_inf*(t),0]))
 
     print("\nCALCULATE INITIAL VALUES")########################################################
 
@@ -329,7 +330,8 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
     p_init_sol=initialPressure(W,U,P,mesh,nue,bc,u_init_sol,U_inf,parameters_3,dt,bc_tang)
 
 
-         
+    plot(p_init_sol)
+    plt.show()
 
 
     print("\nBUILD FORMS")#####################################################################
@@ -346,9 +348,9 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
     u_n.assign(u_init_sol)
     p_n.assign(p_init_sol)
 
-    #plot(u_init_sol)
-    #plt.show()
-    #plot(p_init_sol)
+   # plot(u_init_sol)
+   # plt.show()
+   # plot(p_init_sol)
     #plt.show()
     outfile.write(u_n,p_n,time=0)
 
@@ -356,21 +358,32 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
     print("Div error of initial velocity",errornorm(divtest,Function(P)))
 
 
-    ####
-    #build problem and solver
-
+    print("\nBUILD PROBLEM AND SOLVERS")########################################################
     #predictor only contains tangential BC
     nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
     w_pred = Function(W)
     predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred)
-    solver_pred = LinearVariationalSolver(predictor, solver_parameters=parameters_2)
+    solver_pred = LinearVariationalSolver(predictor, solver_parameters=parameters_3)
+
+    #pressure
+    w_pres = Function(W)
+    nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
+    pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres,bc)#BC RIGHT???
+    solver_pres = LinearVariationalSolver(pressure,nullspace=nullspace,solver_parameters=parameters_1)
+        
+    #corrector
+    w_corr = Function(W)
+    corrector= LinearVariationalProblem(lhs(eq_corr),rhs(eq_corr), w_corr,bc)
+    solver_corr = LinearVariationalSolver(corrector, nullspace=nullspace,solver_parameters=parameters_3)
+        
+   
 
     print("\nTIME PROGRESSING")################################################################
     #outerloop for time progress
     t = 1
     while t < T :
 
-        inflow=-x*100*(x-1)/25*U_inf*cos(t*pi/3)### why is my inflow getting lower
+        inflow=-x*100*(x-1)/25*U_inf*((1+t)*dt)### why is my inflow getting lower
         
         bc_tang.project(as_vector([inflow,0]))
         
@@ -395,30 +408,25 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
                 break      
             else:
                 v_k.assign(usolhat)# is this actually enough??
-              #  plot(usolhat)
-               # plt.show()
-            
         
 
         
-    
+        #plot(usolhat)
+       # plt.show()
+
         print("\n2) PRESSURE UPDATE")#########################################################
         #first modify pressure solve
         #pressure has only normal boundary=0 bc only tangential component of the lid 
         div_old_temp=Function(P).project(div(usolhat))
         div_old.assign(div_old_temp)
         print("Div error of predictor velocity",errornorm(div_old,Function(P)))
-        w_pres = Function(W)
-        nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
-        pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres,bc)#BC RIGHT???
-        solver = LinearVariationalSolver(pressure,nullspace=nullspace,solver_parameters=parameters_1)
-        solver.solve()
+        solver_pres.solve()
         wsol,betasol=w_pres.split()
         print(assemble(betasol).dat.data)
         p_knew=Function(P).assign(p_n+betasol)
 
-       # plot(p_knew)
-        #plt.show()
+       # plot(betasol)
+       # plt.show()
 
 
         print("\n3) CORRECTOR")##############################################################
@@ -426,13 +434,10 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
         v_knew_hat.assign(usolhat)
         beta.assign(betasol)
         
-        w_corr = Function(W)
-        corrector= LinearVariationalProblem(lhs(eq_corr),rhs(eq_corr), w_corr,bc)
-        solver = LinearVariationalSolver(corrector, nullspace=nullspace,solver_parameters=parameters_2)
-        solver.solve()
+        solver_corr.solve()
         usol,psol=w_corr.split()
 
-        #plot(usol)
+       # plot(usol)
        # plt.title("Velocity")
        ## plt.xlabel("x")
        # plt.ylabel("y")
@@ -470,19 +475,18 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
 #####################MAIN##########################
 parameters_1={
     "ksp_type": "fgmres",
-    "ksp_rtol": 5e-2,
+    "ksp_rtol": 1e-1,
     "pc_type": "fieldsplit",
     "pc_fieldsplit_type": "schur",
     "pc_fieldsplit_schur_fact_type": "full",
     "fieldsplit_0_ksp_type": "cg",
    "fieldsplit_0_pc_type": "ilu",
-    "fieldsplit_0_ksp_rtol": 5e-2,
+    "fieldsplit_0_ksp_rtol": 1e-1,
     "fieldsplit_1_ksp_type": "cg",
-    "fieldsplit_1_ksp_rtol": 5e-2,
+    "fieldsplit_1_ksp_rtol": 1e-1,
     "pc_fieldsplit_schur_precondition": "selfp",
     "fieldsplit_1_pc_type": "hypre"
 }
-
 
 parameters_2={   "ksp_type": "gmres",
     "ksp_converged_reason": None,
@@ -494,15 +498,15 @@ parameters_2={   "ksp_type": "gmres",
 }
 parameters_3={
     "ksp_type": "fgmres",
-    "ksp_rtol": 1e-5,
+    "ksp_rtol": 1e-8,
     "pc_type": "fieldsplit",
     "pc_fieldsplit_type": "schur",
     "pc_fieldsplit_schur_fact_type": "full",
     "fieldsplit_0_ksp_type": "cg",
    "fieldsplit_0_pc_type": "ilu",
-    "fieldsplit_0_ksp_rtol": 1e-5,
+    "fieldsplit_0_ksp_rtol": 1e-8,
     "fieldsplit_1_ksp_type": "cg",
-    "fieldsplit_1_ksp_rtol": 1e-5,
+    "fieldsplit_1_ksp_rtol": 1e-8,
     "pc_fieldsplit_schur_precondition": "selfp",
     "fieldsplit_1_pc_type": "hypre"
 }
@@ -510,7 +514,7 @@ parameters_3={
 
 error_velo=[]
 error_pres=[]
-refin=range(5,6)
+refin=range(6,7)
 list_N=[]
 for n in refin:#increasing element number
     
