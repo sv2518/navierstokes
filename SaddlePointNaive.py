@@ -255,7 +255,7 @@ def buildPressureForm(W,U,P,dt,mesh,U_inf,bc_tang,div_old):
     incomp_dg_pres=div(w)*q*dx
     pres_dg_pres=-div(v)*beta*dx
     
-    eq_pres=dot(w,v)*dx-1/dt*force_dg_pres+1/dt*incomp_dg_pres+pres_dg_pres 
+    eq_pres=dot(w,v)*dx-force_dg_pres+1/dt*incomp_dg_pres+pres_dg_pres 
     #bctang
 
     return eq_pres
@@ -268,8 +268,8 @@ def buildCorrectorForm(W,U,P,dt,mesh,U_inf,v_knew_hat,beta):
     eq_corr=(
             dot(v_knew,v)*dx
             -dot(v_knew_hat,v)*dx
-            #-div(v_knew)*q*dx
-            +dt*beta*div(v)*dx
+           # +div(v_knew)*q*dx
+            -dt*beta*div(v)*dx
     )
 
     return eq_corr
@@ -282,10 +282,10 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
     LX=1.0
     LY=1.0
     mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
-    U_inf=Constant(20)
+    U_inf=Constant(10)
     
     #max dx is 0.05 min dx is 0.001
-    dt=0.000001 #if higher dt predictor crashes
+    dt=0.0000001 #if higher dt predictor crashes
     T=50
     
 
@@ -358,10 +358,12 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
 
     ####
     #build problem and solver
+
+    #predictor only contains tangential BC
     nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
     w_pred = Function(W)
     predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred)
-    solver_pred = LinearVariationalSolver(predictor, solver_parameters=parameters_3)
+    solver_pred = LinearVariationalSolver(predictor, solver_parameters=parameters_2)
 
     print("\nTIME PROGRESSING")################################################################
     #outerloop for time progress
@@ -402,11 +404,10 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
     
         print("\n2) PRESSURE UPDATE")#########################################################
         #first modify pressure solve
-
+        #pressure has only normal boundary=0 bc only tangential component of the lid 
         div_old_temp=Function(P).project(div(usolhat))
         div_old.assign(div_old_temp)
         print("Div error of predictor velocity",errornorm(div_old,Function(P)))
-
         w_pres = Function(W)
         nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
         pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres,bc)#BC RIGHT???
@@ -414,20 +415,20 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
         solver.solve()
         wsol,betasol=w_pres.split()
         print(assemble(betasol).dat.data)
-        p_knew=Function(P).assign(p_n-betasol)
+        p_knew=Function(P).assign(p_n+betasol)
 
        # plot(p_knew)
-       # plt.show()
+        #plt.show()
 
 
         print("\n3) CORRECTOR")##############################################################
         #first update corrector form        
         v_knew_hat.assign(usolhat)
-        beta.assign(betasol/dt)
+        beta.assign(betasol)
         
         w_corr = Function(W)
         corrector= LinearVariationalProblem(lhs(eq_corr),rhs(eq_corr), w_corr,bc)
-        solver = LinearVariationalSolver(corrector, nullspace=nullspace,solver_parameters=parameters_3)
+        solver = LinearVariationalSolver(corrector, nullspace=nullspace,solver_parameters=parameters_2)
         solver.solve()
         usol,psol=w_corr.split()
 
@@ -469,15 +470,15 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
 #####################MAIN##########################
 parameters_1={
     "ksp_type": "fgmres",
-    "ksp_rtol": 1e-1,
+    "ksp_rtol": 5e-2,
     "pc_type": "fieldsplit",
     "pc_fieldsplit_type": "schur",
     "pc_fieldsplit_schur_fact_type": "full",
     "fieldsplit_0_ksp_type": "cg",
    "fieldsplit_0_pc_type": "ilu",
-    "fieldsplit_0_ksp_rtol": 1e-1,
+    "fieldsplit_0_ksp_rtol": 5e-2,
     "fieldsplit_1_ksp_type": "cg",
-    "fieldsplit_1_ksp_rtol": 1e-1,
+    "fieldsplit_1_ksp_rtol": 5e-2,
     "pc_fieldsplit_schur_precondition": "selfp",
     "fieldsplit_1_pc_type": "hypre"
 }
