@@ -92,7 +92,7 @@ def initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters,dt,bc_tang):
     
     return u_init_sol
 
-def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters,dt,bc_tang):
+def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters_velo,parameters_pres,dt,bc_tang):
     print("....Solving problem for initial pressure ....")
 
     print(".........part1: solve for some non-divergence free velocity field")
@@ -149,7 +149,7 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters,dt,bc_tang):
     w_init= Function(W)
     init = LinearVariationalProblem(lhs(eq_init),rhs(eq_init), w_init,bc)
     nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
-    solver = LinearVariationalSolver(init, nullspace=nullspace,solver_parameters=parameters)
+    solver = LinearVariationalSolver(init, nullspace=nullspace,solver_parameters=parameters_velo)
     solver.solve()
     F_init_sol,p_init_sol=w_init.split()
 
@@ -168,7 +168,7 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters,dt,bc_tang):
     w_init= Function(W)
     init = LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres), w_init,bc)
     nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
-    solver = LinearVariationalSolver(init, nullspace=nullspace,solver_parameters=parameters)
+    solver = LinearVariationalSolver(init, nullspace=nullspace,solver_parameters=parameters_pres)
     solver.solve()
     u_init_sol,p_init_sol=w_init.split()
  
@@ -177,9 +177,9 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters,dt,bc_tang):
 def buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt,bc_tang,v_k,u_n,p_n):
     print("....build predictor")
 
-    v_knew,pk_new=TrialFunctions(W)
-    v,q=TestFunctions(W)
-    n=FacetNormal(W.mesh())
+    v_knew=TrialFunction(U)
+    v=TestFunction(U)
+    n=FacetNormal(U.mesh())
 
     #functions
     ubar_k=Constant(0.5)*(u_n+v_k) #init old midstep
@@ -229,7 +229,7 @@ def buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt,bc_tang,v_k
     eq=time-adv_dg-lapl_dg
 
     #form for predictor
-    pres_dg_pred=-div(v)*p_n*dx#negative bc integration by parts!
+    pres_dg_pred=dot(div(v),p_n)*dx#negative bc integration by parts!
     eq_pred=eq+pres_dg_pred
 
     return eq_pred
@@ -240,12 +240,11 @@ def buildPressureForm(W,U,P,dt,mesh,U_inf,bc_tang,div_old):
     w,beta = TrialFunctions(W)
     v,q = TestFunctions(W)
 
-    force_dg_pres=dot(div_old ,q)*dx#sign right?
+    force_dg_pres=dot(div_old/dt ,q)*dx#sign right?
     incomp_dg_pres=div(w)*q*dx
     pres_dg_pres=div(v)*beta*dx
     
-    eq_pres=dot(w,v)*dx+1/dt*force_dg_pres-incomp_dg_pres+pres_dg_pres 
-    #1/dt bbefore incomp pressure is lower
+    eq_pres=dot(w,v)*dx+force_dg_pres-incomp_dg_pres+pres_dg_pres 
 
     #bctang
 
@@ -259,21 +258,20 @@ def buildCorrectorForm(W,U,P,dt,mesh,U_inf,v_knew_hat,beta):
     eq_corr=(
             dot(v_knew,v)*dx
             -dot(v_knew_hat,v)*dx
-            -dt*div(v_knew)*q*dx #no need to be included because used before?
+           # -div(v_knew)*q*dx #no need to be included because used before?
             -dt*beta*div(v)*dx
     )
 
     return eq_corr
 
-
-def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3,parameters_4, aP=None, block_matrix=False):
+def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_2, parameters_velo,parameters_4, aP=None, block_matrix=False):
     outfile=File("cavity.pvd")
 
     #generate mesh
     LX=1.0
     LY=1.0
     mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
-    U_inf=Constant(1)
+    U_inf=Constant(10)
    
     
 
@@ -291,7 +289,7 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3,parameters_
     n=FacetNormal(W.mesh())
     nu=1
     nue=Constant(nu) 
-    dt=0.00000001#0.0000001/(nu*(2 ** mesh_size)**2) #if higher dt predictor crashes
+    dt=0.00001#0.0000001/(nu*(2 ** mesh_size)**2) #if higher dt predictor crashes
     T=20
     print("dt is: ",dt)
 
@@ -318,7 +316,7 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3,parameters_
 
     #with that initial value calculate intial pressure 
     # with Poission euqation including some non-divergence free velocity
-    p_init_sol=initialPressure(W,U,P,mesh,nue,bc,u_init_sol,U_inf,parameters_3,dt,bc_tang)
+    p_init_sol=initialPressure(W,U,P,mesh,nue,bc,u_init_sol,U_inf,parameters_4,parameters_pres,dt,bc_tang)
 
 
 
@@ -350,20 +348,24 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3,parameters_
     print("\nBUILD PROBLEM AND SOLVERS")########################################################
     #predictor only contains tangential BC
     nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
-    w_pred = Function(W)
+    def nullspace_basis(T):
+        return VectorSpaceBasis(constant=True)
+    appctx = {'trace_nullspace': nullspace_basis}
+
+    w_pred = Function(U)
     predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred)
-    solver_pred = LinearVariationalSolver(predictor, solver_parameters=parameters_3)
+    solver_pred = LinearVariationalSolver(predictor, solver_parameters=parameters_velo)
 
     #pressure
     w_pres = Function(W)
     nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
     pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres,bc)#BC RIGHT???
-    solver_pres = LinearVariationalSolver(pressure,nullspace=nullspace,solver_parameters=parameters_3)
+    solver_pres = LinearVariationalSolver(pressure,solver_parameters=parameters_pres,appctx=appctx)
         
     #corrector
     w_corr = Function(W)
     corrector= LinearVariationalProblem(lhs(eq_corr),rhs(eq_corr), w_corr,bc)
-    solver_corr = LinearVariationalSolver(corrector, nullspace=nullspace,solver_parameters=parameters_3)
+    solver_corr = LinearVariationalSolver(corrector, nullspace=nullspace,solver_parameters=parameters_corr)
         
    
 
@@ -386,27 +388,26 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3,parameters_
             
             
             solver_pred.solve()
-            usolhat,psolhat=w_pred.split() 
 
             #convergence criterion
-            eps=errornorm(v_k,usolhat)#l2 by default          
+            eps=errornorm(v_k,w_pred)#l2 by default          
             counter+=1
             print("Picard iteration counter: ",counter)
             if(counter>5):
                 print("Picard iteration converged")  
                 break      
             else:
-                v_k.assign(usolhat)# is this actually enough??
+                v_k.assign(w_pred)# is this actually enough??
         
 
         
-        plot(usolhat)
+        plot(w_pred)
         plt.show()
 
         print("\n2) PRESSURE UPDATE")#########################################################
         #first modify pressure solve
         #pressure has only normal boundary=0 bc only tangential component of the lid 
-        div_old_temp=Function(P).project(div(usolhat))
+        div_old_temp=Function(P).project(div(w_pred))
         div_old.assign(div_old_temp)
         print("Div error of predictor velocity",errornorm(div_old,Function(P)))
         solver_pres.solve()
@@ -414,13 +415,13 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3,parameters_
         print(assemble(betasol).dat.data)
         p_knew=Function(P).assign(p_n+betasol)
 
-        plot(betasol)
+        plot(p_knew)
         plt.show()
 
 
         print("\n3) CORRECTOR")##############################################################
         #first update corrector form        
-        v_knew_hat.assign(usolhat)
+        v_knew_hat.assign(w_pred)
         beta.assign(betasol)
         
         solver_corr.solve()
@@ -462,35 +463,53 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3,parameters_
 
      
 #####################MAIN##########################
-parameters_1={
-    "ksp_type": "preonly",
-   "pc_type": "mg",
-   "pc_mg_type": "full",
-   "mg_levels_ksp_type": "chebyshev",
-   "mg_levels_ksp_max_it": 2,
-   "mg_levels_pc_type": "jacobi"
+#parameters_1={
+#    "ksp_type": "preonly",
+#   "pc_type": "mg",
+#   "pc_mg_type": "full",
+#   "mg_levels_ksp_type": "chebyshev",
+#   "mg_levels_ksp_max_it": 2,
+#   "mg_levels_pc_type": "jacobi"
+#}
+
+parameters_velo={'pc_type': 'sor',
+                'ksp_type': 'gmres',
+                'ksp_rtol': 1.0e-7,
+                'pc_sor_symmetric': True
+}
+
+
+parameters_pres = { 'mat_type': 'matfree',
+                    'ksp_type': 'preonly',
+                    'pc_type': 'python',
+                    'pc_python_type': 'firedrake.HybridizationPC',
+                    'hybridization': {'ksp_type': 'preonly',
+                                      'pc_type': 'lu'}
+                  }
+
+parameters_pres_better={
+                     'mat_type': 'matfree',
+                      'ksp_type': 'preonly',
+                      'pc_type': 'python',
+                      'pc_python_type': 'firedrake.HybridizationPC',
+                      'hybridization': {'ksp_type': 'cg',
+                                        'pc_type': 'none',
+                                        'ksp_rtol': 1e-8,
+                                        'mat_type': 'matfree'}
 }
 
 parameters_2={   "ksp_type": "gmres",
-    "ksp_converged_reason": None,
-   "ksp_gmres_restart":100,
-  "ksp_rtol":1e-12,
-    "pc_type":"lu",
-  "pc_factor_mat_solver_type": "mumps",
-  "mat_type":"aij"
+                "ksp_converged_reason": None,
+                 "ksp_gmres_restart":100,
+                "ksp_rtol":1e-4,
+                 "pc_type":"lu",
+                "pc_factor_mat_solver_type": "mumps",
+                "mat_type":"aij",
+                "mat_mumps_icntl_14":200
 }
-parameters_3={
-    "ksp_type": "gmres",
-    "ksp_rtol": 1e-8,
-    "pc_type": "fieldsplit",
-    "pc_fieldsplit_type": "schur",
-    "pc_fieldsplit_schur_fact_type": "full",
-    "fieldsplit_0_ksp_type": "preonly",
-    "fieldsplit_0_pc_type": "ilu",
-    "fieldsplit_1_ksp_type": "preonly",
-    "pc_fieldsplit_schur_precondition": "selfp",
-    "fieldsplit_1_pc_type": "hypre"
-}
+
+
+
 parameters_4={
     "ksp_type": "fgmres",
     "ksp_rtol": 1e-8,
@@ -506,6 +525,14 @@ parameters_4={
     "fieldsplit_1_pc_type": "hypre"
 }
 
+
+parameters_corr={'ksp_type':'preonly',
+        'pc_type':'bjacobi',
+        'sub_pc_type': 'ilu'
+
+}
+
+
 error_velo=[]
 error_pres=[]
 refin=range(5,6)
@@ -513,7 +540,7 @@ list_N=[]
 for n in refin:#increasing element number
     
     #solve
-    w,err_u,err_p,N = solve_problem(n, parameters_1,parameters_2,parameters_3,parameters_4,aP=None, block_matrix=False)
+    w,err_u,err_p,N = solve_problem(n, parameters_corr,parameters_pres_better,parameters_2,parameters_velo,parameters_4,aP=None, block_matrix=False)
     u,p=w.split()
     error_velo.append(err_u)
     error_pres.append(err_p)
