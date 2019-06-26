@@ -50,15 +50,6 @@ def initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters,dt,bc_tang):
     v,q = TestFunctions(W)
     n=FacetNormal(W.mesh())
 
-    v_knew_hat=Function(U)
-    f_pres=Function(P)
-
-    alpha=Constant(10.)
-    gamma=Constant(10.) 
-    h=CellVolume(mesh)/FacetArea(mesh)
-    havg=avg(CellVolume(mesh))/FacetArea(mesh)
-    kappa1=nue * alpha/havg
-    kappa2=nue * gamma/h
 
     #build form
      #Laplacian
@@ -72,7 +63,7 @@ def initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters,dt,bc_tang):
     x, y = SpatialCoordinate(mesh)
 
     #a_dg for other sides
-    a_dg=(nue*inner(grad(u),grad(v))*dx
+    lapl_dg=(nue*inner(grad(u),grad(v))*dx
           -inner(outer(v,n),nue*grad(u))*ds((1,2,3)) 
           -inner(outer(u,n),nue*grad(v))*ds((1,2,3))
           +kappa2*inner(v,u)*ds((1,2,3))
@@ -81,14 +72,14 @@ def initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters,dt,bc_tang):
           +kappa1*inner(both(outer(u,n)),both(outer(v,n)))*dS)
     
     #a_dg for lid
-    a_dg+=(
+    lapl_dg+=(
         -inner(outer(v,n),nue*grad(u-bc_tang))*ds((4))
         -inner(outer(u-bc_tang,n),nue*grad(v))*ds((4)) 
         +kappa2*inner(v,u-bc_tang)*ds((4))
     )
 
 
-    eq_init=dot(u,v)*dx-dot(f_pres,q)*dx-div(u)*q*dx-div(v)*p*dx+a_dg#dt somewhere in here??
+    eq_init=div(u)*q*dx+div(v)*p*dx+lapl_dg#dt somewhere in here??
  #########include gpos somewhere else her??????
 
     #solve
@@ -140,7 +131,7 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters,dt,bc_tang):
 
     #Advection
     #for lid
-    u_linear=Function(U).assign(u_init)
+    u_linear=u_init
     un_pos = 0.5*(dot(u_linear, n)+sign(dot(u_linear, n))*dot(bc_tang,n)+abs(dot(bc_tang,n))+ abs(dot(u_linear, n)))
     un = 0.5*(dot(u_linear, n)+ abs(dot(u_linear, n)))    
     adv_dg=(
@@ -152,7 +143,7 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters,dt,bc_tang):
     #for other thingis
     adv_dg+=-inner(v,u*un)*ds((1,2,3)) #similar to matt piggots
 
-    eq_init=dot(v,F)*dx+adv_dg+a_dg####do we need to include divergence here??
+    eq_init=dot(v,F)*dx-adv_dg+a_dg####do we need to include divergence here??
 
     #solve
     w_init= Function(W)
@@ -165,11 +156,13 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters,dt,bc_tang):
     print("........part2: solve mixed possion problem for initial pressure ")
     
     w,beta = TrialFunctions(W)
+    divtest=Function(P).project(div(F_init_sol))
+    print("Div error of initial velocity",errornorm(divtest,Function(P)))
     f_pres=Function(P).project(div(F_init_sol)) 
     force_dg_pres=dot(f_pres,q)*dx#sign right?
     incomp_dg_pres=div(w)*q*dx
-    pres_dg_pres=-div(v)*beta*dx
-    eq_pres=dot(w,v)*dx-force_dg_pres+incomp_dg_pres+pres_dg_pres #dt somewhere in here??
+    pres_dg_pres=div(v)*beta*dx
+    eq_pres=dot(w,v)*dx+force_dg_pres+incomp_dg_pres+pres_dg_pres #dt somewhere in here??
 
 
     w_init= Function(W)
@@ -232,12 +225,8 @@ def buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt,bc_tang,v_k
     #Time derivative
     time=1/Constant(dt)*inner(v_knew-u_n,v)*dx
 
-    
-    #Body Force 
-    force_dg =dot(Function(U),v)*dx
-
     #TODO: FORMS------------------------------------------- 
-    eq=time-adv_dg-lapl_dg-force_dg
+    eq=time-adv_dg-lapl_dg
 
     #form for predictor
     pres_dg_pred=-div(v)*p_n*dx#negative bc integration by parts!
@@ -253,9 +242,11 @@ def buildPressureForm(W,U,P,dt,mesh,U_inf,bc_tang,div_old):
 
     force_dg_pres=dot(div_old ,q)*dx#sign right?
     incomp_dg_pres=div(w)*q*dx
-    pres_dg_pres=-div(v)*beta*dx
+    pres_dg_pres=div(v)*beta*dx
     
-    eq_pres=dot(w,v)*dx+1/(dt)*force_dg_pres-incomp_dg_pres+pres_dg_pres 
+    eq_pres=dot(w,v)*dx+1/dt*force_dg_pres-incomp_dg_pres+pres_dg_pres 
+    #1/dt bbefore incomp pressure is lower
+
     #bctang
 
     return eq_pres
@@ -268,14 +259,14 @@ def buildCorrectorForm(W,U,P,dt,mesh,U_inf,v_knew_hat,beta):
     eq_corr=(
             dot(v_knew,v)*dx
             -dot(v_knew_hat,v)*dx
-            #-dt*div(v_knew)*q*dx no need to be included because used before?
+            -dt*div(v_knew)*q*dx #no need to be included because used before?
             -dt*beta*div(v)*dx
     )
 
     return eq_corr
 
 
-def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, block_matrix=False):
+def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3,parameters_4, aP=None, block_matrix=False):
     outfile=File("cavity.pvd")
 
     #generate mesh
@@ -298,9 +289,9 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
 	
     #normal and essentially reynolds number
     n=FacetNormal(W.mesh())
-    nu=0.1
+    nu=1
     nue=Constant(nu) 
-    dt=0.0000001#0.0000001/(nu*(2 ** mesh_size)**2) #if higher dt predictor crashes
+    dt=0.00000001#0.0000001/(nu*(2 ** mesh_size)**2) #if higher dt predictor crashes
     T=20
     print("dt is: ",dt)
 
@@ -330,8 +321,6 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
     p_init_sol=initialPressure(W,U,P,mesh,nue,bc,u_init_sol,U_inf,parameters_3,dt,bc_tang)
 
 
-    plot(p_init_sol)
-    plt.show()
 
 
     print("\nBUILD FORMS")#####################################################################
@@ -348,10 +337,10 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
     u_n.assign(u_init_sol)
     p_n.assign(p_init_sol)
 
-   # plot(u_init_sol)
-   # plt.show()
-   # plot(p_init_sol)
-    #plt.show()
+    plot(u_init_sol)
+    plt.show()
+    plot(p_init_sol)
+    plt.show()
     outfile.write(u_n,p_n,time=0)
 
     divtest=Function(P).project(div(u_n))
@@ -369,7 +358,7 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
     w_pres = Function(W)
     nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
     pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres,bc)#BC RIGHT???
-    solver_pres = LinearVariationalSolver(pressure,nullspace=nullspace,solver_parameters=parameters_1)
+    solver_pres = LinearVariationalSolver(pressure,nullspace=nullspace,solver_parameters=parameters_3)
         
     #corrector
     w_corr = Function(W)
@@ -411,8 +400,8 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
         
 
         
-        #plot(usolhat)
-       # plt.show()
+        plot(usolhat)
+        plt.show()
 
         print("\n2) PRESSURE UPDATE")#########################################################
         #first modify pressure solve
@@ -425,8 +414,8 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
         print(assemble(betasol).dat.data)
         p_knew=Function(P).assign(p_n+betasol)
 
-       # plot(betasol)
-       # plt.show()
+        plot(betasol)
+        plt.show()
 
 
         print("\n3) CORRECTOR")##############################################################
@@ -437,11 +426,11 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
         solver_corr.solve()
         usol,psol=w_corr.split()
 
-       # plot(usol)
-       # plt.title("Velocity")
+        plot(usol)
+        plt.title("Velocity")
        ## plt.xlabel("x")
        # plt.ylabel("y")
-       # plt.show()
+        plt.show()
 
 
         divtest=Function(P).project(div(usol))
@@ -474,18 +463,12 @@ def solve_problem(mesh_size, parameters_1,parameters_2, parameters_3, aP=None, b
      
 #####################MAIN##########################
 parameters_1={
-    "ksp_type": "fgmres",
-    "ksp_rtol": 1e-1,
-    "pc_type": "fieldsplit",
-    "pc_fieldsplit_type": "schur",
-    "pc_fieldsplit_schur_fact_type": "full",
-    "fieldsplit_0_ksp_type": "cg",
-   "fieldsplit_0_pc_type": "ilu",
-    "fieldsplit_0_ksp_rtol": 1e-1,
-    "fieldsplit_1_ksp_type": "cg",
-    "fieldsplit_1_ksp_rtol": 1e-1,
-    "pc_fieldsplit_schur_precondition": "selfp",
-    "fieldsplit_1_pc_type": "hypre"
+    "ksp_type": "preonly",
+   "pc_type": "mg",
+   "pc_mg_type": "full",
+   "mg_levels_ksp_type": "chebyshev",
+   "mg_levels_ksp_max_it": 2,
+   "mg_levels_pc_type": "jacobi"
 }
 
 parameters_2={   "ksp_type": "gmres",
@@ -497,6 +480,18 @@ parameters_2={   "ksp_type": "gmres",
   "mat_type":"aij"
 }
 parameters_3={
+    "ksp_type": "gmres",
+    "ksp_rtol": 1e-8,
+    "pc_type": "fieldsplit",
+    "pc_fieldsplit_type": "schur",
+    "pc_fieldsplit_schur_fact_type": "full",
+    "fieldsplit_0_ksp_type": "preonly",
+    "fieldsplit_0_pc_type": "ilu",
+    "fieldsplit_1_ksp_type": "preonly",
+    "pc_fieldsplit_schur_precondition": "selfp",
+    "fieldsplit_1_pc_type": "hypre"
+}
+parameters_4={
     "ksp_type": "fgmres",
     "ksp_rtol": 1e-8,
     "pc_type": "fieldsplit",
@@ -511,15 +506,14 @@ parameters_3={
     "fieldsplit_1_pc_type": "hypre"
 }
 
-
 error_velo=[]
 error_pres=[]
-refin=range(6,7)
+refin=range(5,6)
 list_N=[]
 for n in refin:#increasing element number
     
     #solve
-    w,err_u,err_p,N = solve_problem(n, parameters_1,parameters_2,parameters_3,aP=None, block_matrix=False)
+    w,err_u,err_p,N = solve_problem(n, parameters_1,parameters_2,parameters_3,parameters_4,aP=None, block_matrix=False)
     u,p=w.split()
     error_velo.append(err_u)
     error_pres.append(err_p)
