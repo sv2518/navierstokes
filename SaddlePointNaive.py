@@ -79,7 +79,7 @@ def initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters,dt,bc_tang):
     )
 
 
-    eq_init=div(u)*q*dx+div(v)*p*dx+lapl_dg#dt somewhere in here??
+    eq_init=-div(u)*q*dx+div(v)*p*dx-lapl_dg#dt somewhere in here??
  #########include gpos somewhere else her??????
 
     #solve
@@ -226,7 +226,7 @@ def buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt,bc_tang,v_k
     time=1/Constant(dt)*inner(v_knew-u_n,v)*dx
 
     #TODO: FORMS------------------------------------------- 
-    eq=time-adv_dg-lapl_dg
+    eq=time-adv_dg+lapl_dg
 
     #form for predictor
     pres_dg_pred=dot(div(v),p_n)*dx#negative bc integration by parts!
@@ -252,8 +252,8 @@ def buildPressureForm(W,U,P,dt,mesh,U_inf,bc_tang,div_old):
 
 def buildCorrectorForm(W,U,P,dt,mesh,U_inf,v_knew_hat,beta):
     print("....build corrector")
-    v_knew,p_knew=TrialFunctions(W)
-    v,q=TestFunctions(W)
+    v_knew=TrialFunction(U)
+    v=TestFunction(U)
 
     eq_corr=(
             dot(v_knew,v)*dx
@@ -289,7 +289,7 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
     n=FacetNormal(W.mesh())
     nu=1
     nue=Constant(nu) 
-    dt=0.0000001#0.0000001/(nu*(2 ** mesh_size)**2) #if higher dt predictor crashes
+    dt=0.000000001#0.0000001/(nu*(2 ** mesh_size)**2) #if higher dt predictor crashes
     T=20
     print("dt is: ",dt)
 
@@ -317,8 +317,6 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
     #with that initial value calculate intial pressure 
     # with Poission euqation including some non-divergence free velocity
     p_init_sol=initialPressure(W,U,P,mesh,nue,bc,u_init_sol,U_inf,parameters_4,parameters_pres,dt,bc_tang)
-
-
 
 
     print("\nBUILD FORMS")#####################################################################
@@ -363,9 +361,9 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
     solver_pres = LinearVariationalSolver(pressure,solver_parameters=parameters_pres,appctx=appctx)
         
     #corrector
-    w_corr = Function(W)
+    w_corr = Function(U)
     corrector= LinearVariationalProblem(lhs(eq_corr),rhs(eq_corr), w_corr,bc)
-    solver_corr = LinearVariationalSolver(corrector, nullspace=nullspace,solver_parameters=parameters_corr)
+    solver_corr = LinearVariationalSolver(corrector,solver_parameters=parameters_corr)
         
    
 
@@ -425,8 +423,7 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
         beta.assign(betasol)
         
         solver_corr.solve()
-        usol,psol=w_corr.split()
-
+        usol=Function(U).assign(w_corr)
         plot(usol)
         plt.title("Velocity")
        ## plt.xlabel("x")
@@ -543,16 +540,14 @@ parameters_4={
 }
 
 
-parameters_corr={"ksp_type": "gmres",
-        "ksp_gmres_restart": 100,
-        "ksp_rtol": 1e-8,
+parameters_corr={"ksp_type": "cg",
         'pc_type': 'ilu'
 }
 
 
 error_velo=[]
 error_pres=[]
-refin=range(5,6)
+refin=range(4,5)
 list_N=[]
 for n in refin:#increasing element number
     
