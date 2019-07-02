@@ -96,9 +96,9 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters_velo,parameters_pr
     print("....Solving problem for initial pressure ....")
 
     print(".........part1: solve for some non-divergence free velocity field")
-    F,p=TrialFunctions(W)
-    v,q=TestFunctions(W)
-    n=FacetNormal(W.mesh())
+    F=TrialFunction(U)
+    v=TestFunction(U)
+    n=FacetNormal(U.mesh())
 
     #build form
     #Laplacian
@@ -143,19 +143,21 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters_velo,parameters_pr
     #for other thingis
     adv_dg+=-inner(v,u*un)*ds((1,2,3)) #similar to matt piggots
 
-    eq_init=dot(v,F)*dx-adv_dg+a_dg####do we need to include divergence here??
+    eq_init=dot(v,F)*dx-dt*adv_dg+dt*a_dg####do we need to include divergence here??
 
     #solve
-    w_init= Function(W)
+    w_init= Function(U)
     init = LinearVariationalProblem(lhs(eq_init),rhs(eq_init), w_init,bc)
-    nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
-    solver = LinearVariationalSolver(init, nullspace=nullspace,solver_parameters=parameters_velo)
+   # nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
+    solver = LinearVariationalSolver(init, solver_parameters=parameters_velo)
     solver.solve()
-    F_init_sol,p_init_sol=w_init.split()
+    F_init_sol=Function(U).assign(w_init)
 
     print("........part2: solve mixed possion problem for initial pressure ")
     
     w,beta = TrialFunctions(W)
+    v,q=TestFunctions(W)
+    n=FacetNormal(W.mesh())
     divtest=Function(P).project(div(F_init_sol))
     print("Div error of initial velocity",errornorm(divtest,Function(P)))
     f_pres=Function(P).project(div(F_init_sol)) 
@@ -168,7 +170,10 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters_velo,parameters_pr
     w_init= Function(W)
     init = LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres), w_init,bc)
     nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
-    solver = LinearVariationalSolver(init, nullspace=nullspace,solver_parameters=parameters_pres)
+    def nullspace_basis(T):
+        return VectorSpaceBasis(constant=True)
+    appctx = {'trace_nullspace': nullspace_basis}
+    solver = LinearVariationalSolver(init, solver_parameters=parameters_pres,appctx=appctx)
     solver.solve()
     u_init_sol,p_init_sol=w_init.split()
  
@@ -230,7 +235,7 @@ def buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt,bc_tang,v_k
 
     #form for predictor
     pres_dg_pred=dot(div(v),p_n)*dx#negative bc integration by parts!
-    eq_pred=eq+pres_dg_pred
+    eq_pred=eq-pres_dg_pred
 
     return eq_pred
 
@@ -289,7 +294,7 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
     n=FacetNormal(W.mesh())
     nu=1
     nue=Constant(nu) 
-    dt=0.000000001#0.0000001/(nu*(2 ** mesh_size)**2) #if higher dt predictor crashes
+    dt=0.00001#/(nu*(2 ** mesh_size)**2) #if higher dt predictor crashes
     T=20
     print("dt is: ",dt)
 
@@ -316,7 +321,7 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
 
     #with that initial value calculate intial pressure 
     # with Poission euqation including some non-divergence free velocity
-    p_init_sol=initialPressure(W,U,P,mesh,nue,bc,u_init_sol,U_inf,parameters_4,parameters_pres,dt,bc_tang)
+    p_init_sol=initialPressure(W,U,P,mesh,nue,bc,u_init_sol,U_inf,parameters_corr,parameters_pres,dt,bc_tang)
 
 
     print("\nBUILD FORMS")#####################################################################
@@ -411,7 +416,7 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
         solver_pres.solve()
         wsol,betasol=w_pres.split()
         print(assemble(betasol).dat.data)
-        p_knew=Function(P).assign(p_n+betasol)
+        p_knew=Function(P).assign(p_n+dt*betasol)
 
         plot(p_knew)
         plt.show()
