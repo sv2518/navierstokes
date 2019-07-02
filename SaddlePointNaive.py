@@ -264,14 +264,14 @@ def buildCorrectorForm(W,U,P,dt,mesh,U_inf,v_knew_hat,beta):
 
     return eq_corr
 
-def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_2, parameters_velo,parameters_4, aP=None, block_matrix=False):
+def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_initial, parameters_velo,parameters_4, aP=None, block_matrix=False):
     outfile=File("cavity.pvd")
 
     #generate mesh
     LX=1.0
     LY=1.0
     mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
-    U_inf=Constant(10)
+    U_inf=Constant(1)
    
     
 
@@ -289,7 +289,7 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_2, param
     n=FacetNormal(W.mesh())
     nu=1
     nue=Constant(nu) 
-    dt=0.00001#0.0000001/(nu*(2 ** mesh_size)**2) #if higher dt predictor crashes
+    dt=0.0000001#0.0000001/(nu*(2 ** mesh_size)**2) #if higher dt predictor crashes
     T=20
     print("dt is: ",dt)
 
@@ -312,7 +312,7 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_2, param
     print("\nCALCULATE INITIAL VALUES")########################################################
 
     #calculate inital value for pressure with potential flow
-    u_init_sol=initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters_2,dt,bc_tang)
+    u_init_sol=initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters_velo_initial,dt,bc_tang)
 
     #with that initial value calculate intial pressure 
     # with Poission euqation including some non-divergence free velocity
@@ -508,7 +508,24 @@ parameters_2={   "ksp_type": "gmres",
                 "mat_mumps_icntl_14":200
 }
 
-
+parameters_velo_initial={
+"mat_type": "matfree",
+"ksp_type": "gmres",
+"ksp_monitor_true_residual": None,
+"ksp_view": None,
+"pc_type": "fieldsplit",
+"pc_fieldsplit_type": "schur",
+"pc_fieldsplit_schur_fact_type": "diag",
+"fieldsplit_0_ksp_type": "preonly",
+"fieldsplit_0_pc_type": "python",
+"fieldsplit_0_pc_python_type": "firedrake.AssembledPC",
+"fieldsplit_0_assembled_pc_type": "hypre",
+"fieldsplit_1_ksp_type": "preonly",
+"fieldsplit_1_pc_type": "python",
+"fieldsplit_1_pc_python_type": "firedrake.MassInvPC", 
+"fieldsplit_1_Mp_ksp_type": "preonly",
+"fieldsplit_1_Mp_pc_type": "ilu"
+}
 
 parameters_4={
     "ksp_type": "fgmres",
@@ -526,10 +543,10 @@ parameters_4={
 }
 
 
-parameters_corr={'ksp_type':'preonly',
-        'pc_type':'bjacobi',
-        'sub_pc_type': 'ilu'
-
+parameters_corr={"ksp_type": "gmres",
+        "ksp_gmres_restart": 100,
+        "ksp_rtol": 1e-8,
+        'pc_type': 'ilu'
 }
 
 
@@ -540,7 +557,7 @@ list_N=[]
 for n in refin:#increasing element number
     
     #solve
-    w,err_u,err_p,N = solve_problem(n, parameters_corr,parameters_pres_better,parameters_2,parameters_velo,parameters_4,aP=None, block_matrix=False)
+    w,err_u,err_p,N = solve_problem(n, parameters_corr,parameters_pres_better,parameters_velo_initial,parameters_velo,parameters_4,aP=None, block_matrix=False)
     u,p=w.split()
     error_velo.append(err_u)
     error_pres.append(err_p)
