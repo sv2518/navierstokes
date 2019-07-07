@@ -132,11 +132,12 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters_velo,parameters_pr
     #Advection
     #for lid
     u_linear=Function(U).assign(u_init)
-    un_pos = 0.5*(dot(u_linear, n)+sign(dot(u_linear, n))*dot(bc_tang,n)+abs(dot(bc_tang,n))+ abs(dot(u_linear, n)))
-    un = 0.5*(dot(u_linear, n)+ abs(dot(u_linear, n)))    
+    #un_pos = 0.5*(dot(u_linear, n)+sign(dot(u_linear, n))*dot(bc_tang,n)+abs(dot(bc_tang,n))+ abs(dot(u_linear, n)))
+    un = 0.5*(dot(u_linear, n)+ abs(dot(u_linear, n)))   
+    un_pos = 0.5*(dot(u_linear,n)*u+abs(dot(u_linear,n))*u+ dot(u_linear,n)*bc_tang-abs(dot(u_linear,n))*bc_tang) 
     adv_dg=(
-        dot(u_linear,div(outer(v,u)))*dx#like paper
-            -dot(v,u*un_pos)*ds(4)#similar to matt piggots
+        dot(u,div(outer(v,u_linear)))*dx#like paper
+            -dot(v,un_pos)*ds(4)#similar to matt piggots
             -dot((v('+')-v('-')),(un('+')*(u('+')) - un('-')*(u('-'))))*dS
         )#like in the tutorial
     
@@ -217,11 +218,11 @@ def buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt,bc_tang,v_k
     #Advection adv_dg
     #for Picard iteration
     un = 0.5*(dot(ubar_k, n)+ abs(dot(ubar_k, n))) 
-    un_pos = 0.5*(dot(ubar_k, n)-dot(-bc_tang,n)+abs(dot(-bc_tang,n))+ abs(dot(ubar_k, n)))
-   
+    #un_pos = 0.5*(dot(ubar_k, n)-sign(dot(ubar_k, n))*dot(bc_tang,n)+abs(dot(bc_tang,n))+ abs(dot(ubar_k, n)))
+    un_pos = 0.5*(dot(ubar_k,n)*ubar_knew+abs(dot(ubar_k,n))*ubar_knew + dot(ubar_k,n)*bc_tang-abs(dot(ubar_k,n))*bc_tang)
     #for lid
     adv_dg=(dot(ubar_k,div(outer(v,ubar_knew)))*dx#like paper
-            -dot(v,ubar_knew*un_pos)*ds(4)#similar to matt piggots
+            -dot(v,un_pos)*ds(4)#similar to matt piggots
             -dot((v('+')-v('-')),(un('+')*(ubar_knew('+')) - un('-')*(ubar_knew('-'))))*dS)#like in the tutorial
     
     #for other thingis
@@ -245,7 +246,7 @@ def buildPressureForm(W,U,P,dt,mesh,U_inf,bc_tang,div_old):
     w,beta = TrialFunctions(W)
     v,q = TestFunctions(W)
 
-    force_dg_pres=dot(div_old/dt ,q)*dx#sign right?
+    force_dg_pres=dot(div_old/dt ,q)*dx
     incomp_dg_pres=div(w)*q*dx
     pres_dg_pres=div(v)*beta*dx
     
@@ -280,8 +281,8 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
     U_inf=Constant(U_in)
    
     #function spaces
-    U = FunctionSpace(mesh, "RTCF",1)
-    P = FunctionSpace(mesh, "DG", 0)
+    U = FunctionSpace(mesh, "RTCF",3)
+    P = FunctionSpace(mesh, "DG", 2)
     W = U*P
     
     #functions
@@ -291,9 +292,9 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
 	
     #normal and essentially reynolds number
     n=FacetNormal(W.mesh())
-    nu=1
-    nue=Constant(1) 
-    dt=0.1/(U_in*nu*(2 ** mesh_size)) #with cfl number
+    nu=0.01
+    nue=Constant(nu) 
+    dt=1/(U_in*(2 ** mesh_size)) #with cfl number
     T=1500
     print("dt is: ",dt)
 
@@ -353,7 +354,7 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
     appctx = {'trace_nullspace': nullspace_basis}
 
     w_pred = Function(U)
-    predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred)
+    predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred,bc)
     solver_pred = LinearVariationalSolver(predictor, solver_parameters=parameters_velo)
 
     #pressure
@@ -375,7 +376,8 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
     while t < T :
 
         #time-dependent boundary
-        print("t is: ",t)
+        print("t is: ",t*dt)
+        print("n is: ",t)
         inflow=-x*100*(x-1)/25*U_inf*((1+t)*dt)### why is my inflow getting lower
         bc_tang.project(as_vector([inflow,0]))
         
@@ -394,7 +396,7 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
             eps=errornorm(v_k,w_pred)#l2 by default          
             counter+=1
             print("Picard iteration counter: ",counter)
-            if(counter>1):
+            if(counter>5):
                 print("Picard iteration converged")  
                 break      
             else:
@@ -402,8 +404,8 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
         
 
         
-        plot(w_pred)
-        plt.show()
+       # plot(w_pred)
+       # plt.show()
 
         print("\n2) PRESSURE UPDATE")#########################################################
         #first modify pressure solve
@@ -414,10 +416,10 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
         solver_pres.solve()
         wsol,betasol=w_pres.split()
         print(assemble(betasol).dat.data)
-        p_knew=Function(P).assign(p_n+betasol)
+        p_knew=Function(P).assign(p_n-betasol)
 
-        plot(p_knew)
-        plt.show()
+        #plot(p_knew)
+        #plt.show()
 
 
         print("\n3) CORRECTOR")##############################################################
@@ -427,11 +429,11 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
         
         solver_corr.solve()
         usol=Function(U).assign(w_corr)
-        plot(usol)
-        plt.title("Velocity")
+       # plot(usol)
+       # plt.title("Velocity")
        # plt.xlabel("x")
        # plt.ylabel("y")
-        plt.show()
+        #plt.show()
 
 
         divtest=Function(P).project(div(usol))
@@ -474,8 +476,7 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
 
 parameters_velo={'pc_type': 'sor',
                 'ksp_type': 'gmres',
-                'ksp_rtol': 1.0e-7,
-                'pc_sor_symmetric': True
+                'ksp_rtol': 1.0e-7
 }
 
 
