@@ -248,13 +248,11 @@ def buildPressureForm(W,U,P,dt,mesh,U_inf,bc_tang,div_old):
     w,beta = TrialFunctions(W)
     v,q = TestFunctions(W)
 
-    force_dg_pres=dot(div_old/dt ,q)*dx#sign right?
+    force_dg_pres=dot(div_old/dt ,q)*dx
     incomp_dg_pres=div(w)*q*dx
     pres_dg_pres=div(v)*beta*dx
     
     eq_pres=dot(w,v)*dx-force_dg_pres+incomp_dg_pres+pres_dg_pres 
-
-    #bctang
 
     return eq_pres
 
@@ -283,8 +281,8 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
     U_inf=Constant(U_in)
    
     #function spaces
-    U = FunctionSpace(mesh, "RTCF",1)
-    P = FunctionSpace(mesh, "DG", 0)
+    U = FunctionSpace(mesh, "RTCF",2)
+    P = FunctionSpace(mesh, "DG", 1)
     W = U*P
     
     #functions
@@ -294,9 +292,9 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
 	
     #outwards pointing normal,1/reynolds number,time stepping params
     n=FacetNormal(W.mesh())
-    nu=1
-    nue=Constant(1) 
-    dt=0.1/(U_in*nu*(2 ** mesh_size)) #with cfl number
+    nu=0.01
+    nue=Constant(nu) 
+    dt=1/(U_in*(2 ** mesh_size)) #with cfl number
     T=1500
     print("dt is: ",dt)
 
@@ -361,7 +359,7 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
         return VectorSpaceBasis(constant=True)
     appctx = {'trace_nullspace': nullspace_basis}
     w_pred = Function(U)
-    predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred)
+    predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred,bc)
     solver_pred = LinearVariationalSolver(predictor, solver_parameters=parameters_velo)
 
     #pressure update
@@ -381,8 +379,10 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
     while t < T :
 
         #time-dependent boundary
-        print("t is: ",t)
-        bc_tang[0]=Function(U).project(as_vector([-x*100*(x-1)/25*U_inf*((1+t)*dt),0]))
+        print("t is: ",t*dt)
+        print("n is: ",t)
+        inflow=-x*100*(x-1)/25*U_inf*((1+t)*dt)### why is my inflow getting lower
+        bc_tang.project(as_vector([inflow,0]))
         
         #update picard iteration       
         counter=0
@@ -398,7 +398,7 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
             eps=errornorm(v_k,w_pred)#l2 by default          
             counter+=1
             print("Picard iteration counter: ",counter)
-            if(counter>1):
+            if(counter>5):
                 print("Picard iteration converged")  
                 break      
             else:
@@ -406,8 +406,8 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
         
 
         
-        plot(w_pred)
-        plt.show()
+       # plot(w_pred)
+       # plt.show()
 
         print("\n2) PRESSURE UPDATE")#########################################################
         #first modify pressure solve
@@ -418,10 +418,10 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
         solver_pres.solve()
         wsol,betasol=w_pres.split()
         print(assemble(betasol).dat.data)
-        p_knew=Function(P).assign(p_n+betasol)
+        p_knew=Function(P).assign(p_n-betasol)
 
-        plot(p_knew)
-        plt.show()
+        #plot(p_knew)
+        #plt.show()
 
 
         print("\n3) CORRECTOR")##############################################################
@@ -431,11 +431,11 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
         
         solver_corr.solve()
         usol=Function(U).assign(w_corr)
-        plot(usol)
-        plt.title("Velocity")
+       # plot(usol)
+       # plt.title("Velocity")
        # plt.xlabel("x")
        # plt.ylabel("y")
-        plt.show()
+        #plt.show()
 
 
         divtest=Function(P).project(div(usol))
@@ -478,8 +478,7 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
 
 parameters_velo={'pc_type': 'sor',
                 'ksp_type': 'gmres',
-                'ksp_rtol': 1.0e-7,
-                'pc_sor_symmetric': True
+                'ksp_rtol': 1.0e-7
 }
 
 
