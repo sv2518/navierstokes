@@ -51,8 +51,8 @@ def initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters,dt,bc_tang):
     n=FacetNormal(W.mesh())
 
 
-    #build form
-     #Laplacian
+    #BUILD FORM
+    #Stability params for Laplacian
     alpha=Constant(10)#interior
     gamma=Constant(10) #exterior
     h=CellVolume(mesh)/FacetArea(mesh)  
@@ -60,32 +60,32 @@ def initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters,dt,bc_tang):
     kappa1=nue*alpha/havg
     kappa2=nue*gamma/h
     
-    x, y = SpatialCoordinate(mesh)
 
-    #a_dg for other sides
-    lapl_dg=(nue*inner(grad(u),grad(v))*dx
-          -inner(outer(v,n),nue*grad(u))*ds((1,2,3)) 
-          -inner(outer(u,n),nue*grad(v))*ds((1,2,3))
-          +kappa2*inner(v,u)*ds((1,2,3))
-          -inner(nue*avg(grad(v)),both(outer(u,n)))*dS
-          -inner(both(outer(v,n)),nue*avg(grad(u)))*dS
-          +kappa1*inner(both(outer(u,n)),both(outer(v,n)))*dS)
-    
-    #a_dg for lid
-    lapl_dg+=(
-        -inner(outer(v,n),nue*grad(u-bc_tang))*ds((4))
-        -inner(outer(u-bc_tang,n),nue*grad(v))*ds((4)) 
-        +kappa2*inner(v,u-bc_tang)*ds((4))
+    #laplacian for interior domain and interior facets
+    lapl_dg=(
+        nue*inner(grad(u),grad(v))*dx
+        -inner(nue*avg(grad(v)),both(outer(u,n)))*dS
+        -inner(both(outer(v,n)),nue*avg(grad(u)))*dS
+        +kappa1*inner(both(outer(u,n)),both(outer(v,n)))*dS
     )
 
+    for [bc_t,m] in bc_tang:
+        #laplacian for exterior facets
+        lapl_dg+=(
+            -inner(outer(v,n),nue*grad(u-bc_t))*ds((m))
+            -inner(outer(u-bc_t,n),nue*grad(v))*ds((m)) 
+            +kappa2*inner(v,u-bc_t)*ds((m))
+        )
+    
+    incomp_dg=div(u)*q*dx
 
-    eq_init=-div(u)*q*dx+div(v)*p*dx-lapl_dg#dt somewhere in here??
- #########include gpos somewhere else her??????
+    pres_dg=div(v)*p*dx
+
+    eq_init=-incomp_dg+pres_dg-lapl_dg
 
     #solve
     w_init= Function(W)
     init = LinearVariationalProblem(lhs(eq_init),rhs(eq_init), w_init,bc)
-    nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
     solver = LinearVariationalSolver(init, solver_parameters=parameters)
     solver.solve()
     u_init_sol,p_init_sol=w_init.split()
@@ -100,73 +100,74 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters_velo,parameters_pr
     v=TestFunction(U)
     n=FacetNormal(U.mesh())
 
-    #build form
-    #Laplacian
-    u=Function(U).assign(u_init)
-
+    #reuse initial velocity
+    u_linear=Function(U).assign(u_init)
+    
+    #BUILD FORM
+    #Stability params for Laplacian
     alpha=Constant(10)#interior
     gamma=Constant(10) #exterior
     h=CellVolume(mesh)/FacetArea(mesh)  
     havg=avg(CellVolume(mesh))/FacetArea(mesh)
     kappa1=nue*alpha/havg
     kappa2=nue*gamma/h
+
+    #Fluxes for Advection 
+    u_flux_int = 0.5*(dot(u_linear, n)+ abs(dot(u_linear, n))) 
     
-    #laplacian for other sides
-    a_dg=(
-        nue*inner(grad(u),grad(v))*dx
-          -inner(outer(v,n),nue*grad(u))*ds((1,2,3)) 
-         -inner(outer(u,n),nue*grad(v))*ds((1,2,3))
-          +kappa2*inner(v,u)*ds((1,2,3))
-         -inner(nue*avg(grad(v)),both(outer(u,n)))*dS
-         -inner(both(outer(v,n)),nue*avg(grad(u)))*dS
-         +kappa1*inner(both(outer(u,n)),both(outer(v,n)))*dS
-        )
-    
-    #laplacian for lid
-    a_dg+=(
-        -inner(outer(v,n),nue*grad(u-bc_tang))*ds((4))
-        -inner(outer(u-bc_tang,n),nue*grad(v))*ds((4)) 
-        +kappa2*inner(v,u-bc_tang)*ds((4))
+    #laplacian for interior domain and interior facets
+    lapl_dg=(
+        nue*inner(grad(u_linear),grad(v))*dx
+        -inner(nue*avg(grad(v)),both(outer(u_linear,n)))*dS
+        -inner(both(outer(v,n)),nue*avg(grad(u_linear)))*dS
+        +kappa1*inner(both(outer(u_linear,n)),both(outer(v,n)))*dS
     )
 
-    #Advection
-    #for lid
-    u_linear=Function(U).assign(u_init)
-    un_pos = 0.5*(dot(u_linear, n)+sign(dot(u_linear, n))*dot(bc_tang,n)+abs(dot(bc_tang,n))+ abs(dot(u_linear, n)))
-    un = 0.5*(dot(u_linear, n)+ abs(dot(u_linear, n)))    
+    #advection in for interior domain and interior facets
     adv_dg=(
-        dot(u_linear,div(outer(v,u)))*dx#like paper
-            -dot(v,u*un_pos)*ds(4)#similar to matt piggots
-            -dot((v('+')-v('-')),(un('+')*(u('+')) - un('-')*(u('-'))))*dS
-        )#like in the tutorial
-    
-    #for other thingis
-    adv_dg+=-inner(v,u*un)*ds((1,2,3)) #similar to matt piggots
+        dot(u_linear,div(outer(v,u_linear)))*dx 
+        -dot((v('+')-v('-')),(u_flux_int('+')*(u_linear('+')) - u_flux_int('-')*(u_linear('-'))))*dS
+    )
 
-    eq_init=dot(v,F)*dx-adv_dg+a_dg####do we need to include divergence here??
+    for bc_t,m in bc_tang:
+        #laplacian for exterior facets
+        lapl_dg+=(
+            -inner(outer(v,n),nue*grad(u_linear-bc_t))*ds((m))
+            -inner(outer(u_linear-bc_t,n),nue*grad(v))*ds((m)) 
+            +kappa2*inner(v,u_linear-bc_t)*ds((m))
+        )
+
+        u_flux_ext = 0.5*(dot(u_linear, n)-dot(-bc_t,n)+abs(dot(-bc_t,n))+ abs(dot(u_linear, n)))  
+        #advection for exterior facets 
+        adv_dg+=(-dot(v,u_linear*u_flux_ext)*ds(m))
+        #adv_dg+=-inner(v,ubar_knew*un)*ds((1,2,3)) 
+
+    #form for projection
+    eq_init=dot(v,F)*dx-adv_dg+lapl_dg
 
     #solve
     w_init= Function(U)
     init = LinearVariationalProblem(lhs(eq_init),rhs(eq_init), w_init,bc)
-   # nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
     solver = LinearVariationalSolver(init, solver_parameters=parameters_velo)
     solver.solve()
     F_init_sol=Function(U).assign(w_init)
 
+    ############################################################################
     print("........part2: solve mixed possion problem for initial pressure ")
     
     w,beta = TrialFunctions(W)
     v,q=TestFunctions(W)
     n=FacetNormal(W.mesh())
-    divtest=Function(P).project(div(F_init_sol))
-    print("Div error of initial velocity",errornorm(divtest,Function(P)))
-    f_pres=Function(P).project(div(F_init_sol)) 
+    f_pres=Function(P).project(div(F_init_sol))#old divergence acts like forcing 
+    print("Div error of projected velocity",errornorm(f_pres,Function(P)))
     force_dg_pres=dot(f_pres,q)*dx#sign right?
     incomp_dg_pres=div(w)*q*dx
     pres_dg_pres=div(v)*beta*dx
-    eq_pres=dot(w,v)*dx+force_dg_pres+incomp_dg_pres+pres_dg_pres #dt somewhere in here??
 
+    #form for pressure solve
+    eq_pres=dot(w,v)*dx+force_dg_pres+incomp_dg_pres+pres_dg_pres 
 
+    #solve
     w_init= Function(W)
     init = LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres), w_init,bc)
     nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
@@ -190,42 +191,44 @@ def buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt,bc_tang,v_k
     ubar_k=Constant(0.5)*(u_n+v_k) #init old midstep
     ubar_knew=Constant(0.5)*(u_n+v_knew) #init new midstep
     
-    #Laplacian a_dg
+    #Stability params for Laplacian
     alpha=Constant(10)#interior
     gamma=Constant(10) #exterior
     h=CellVolume(mesh)/FacetArea(mesh)  
     havg=avg(CellVolume(mesh))/FacetArea(mesh)
     kappa1=nue*alpha/havg
     kappa2=nue*gamma/h
+
+    #Fluxes for Advection 
+    u_flux_int = 0.5*(dot(ubar_k, n)+ abs(dot(ubar_k, n))) 
     
-    #lapl_dg for other sides
-    lapl_dg=(nue*inner(grad(ubar_knew),grad(v))*dx
-          -inner(outer(v,n),nue*grad(ubar_knew))*ds((1,2,3)) 
-          -inner(outer(ubar_knew,n),nue*grad(v))*ds((1,2,3))
-          +kappa2*inner(v,ubar_knew)*ds((1,2,3))
-          -inner(nue*avg(grad(v)),both(outer(ubar_knew,n)))*dS
-          -inner(both(outer(v,n)),nue*avg(grad(ubar_knew)))*dS
-          +kappa1*inner(both(outer(ubar_knew,n)),both(outer(v,n)))*dS)
-    
-    #lapl_dg for lid
-    lapl_dg+=(
-        -inner(outer(v,n),nue*grad(ubar_knew-bc_tang))*ds((4))
-        -inner(outer(ubar_knew-bc_tang,n),nue*grad(v))*ds((4)) 
-        +kappa2*inner(v,ubar_knew-bc_tang)*ds((4))
+    #laplacian for interior domain and interior facets
+    lapl_dg=(
+            nue*inner(grad(ubar_knew),grad(v))*dx
+            -inner(nue*avg(grad(v)),both(outer(ubar_knew,n)))*dS
+            -inner(both(outer(v,n)),nue*avg(grad(ubar_knew)))*dS
+            +kappa1*inner(both(outer(ubar_knew,n)),both(outer(v,n)))*dS
+    )
+
+    #advection in for interior domain and interior facets
+    adv_dg=(
+        dot(ubar_k,div(outer(v,ubar_knew)))*dx 
+        -dot((v('+')-v('-')),(u_flux_int('+')*(ubar_knew('+')) - u_flux_int('-')*(ubar_knew('-'))))*dS
     )
     
-    #Advection adv_dg
-    #for Picard iteration
-    un = 0.5*(dot(ubar_k, n)+ abs(dot(ubar_k, n))) 
-    un_pos = 0.5*(dot(ubar_k, n)-dot(-bc_tang,n)+abs(dot(-bc_tang,n))+ abs(dot(ubar_k, n)))
-   
-    #for lid
-    adv_dg=(dot(ubar_k,div(outer(v,ubar_knew)))*dx#like paper
-            -dot(v,ubar_knew*un_pos)*ds(4)#similar to matt piggots
-            -dot((v('+')-v('-')),(un('+')*(ubar_knew('+')) - un('-')*(ubar_knew('-'))))*dS)#like in the tutorial
-    
-    #for other thingis
-    adv_dg+=-inner(v,ubar_knew*un)*ds((1,2,3)) #similar to matt piggots
+    for [bc_t,m] in bc_tang:
+        #laplacian for exterior facets
+        lapl_dg+=(
+            -inner(outer(v,n),nue*grad(ubar_knew-bc_t))*ds(m) 
+            -inner(outer(ubar_knew-bc_t,n),nue*grad(v))*ds(m)
+            +kappa2*inner(v,ubar_knew-bc_t)*ds(m)
+        )
+
+        #advection for exterior facets 
+        u_flux_ext = 0.5*(dot(ubar_k, n)-dot(-bc_t,n)+abs(dot(-bc_t,n))+ abs(dot(ubar_k, n)))
+        adv_dg+=(-dot(v,ubar_knew*u_flux_ext)*ds(m))
+        #adv_dg+=-inner(v,ubar_knew*un)*ds((1,2,3)) 
+
 
     #Time derivative
     time=1/Constant(dt)*inner(v_knew-u_n,v)*dx
@@ -234,8 +237,8 @@ def buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt,bc_tang,v_k
     eq=time-adv_dg+lapl_dg
 
     #form for predictor
-    pres_dg_pred=dot(div(v),p_n)*dx#negative bc integration by parts!
-    eq_pred=eq+pres_dg_pred
+    pres_dg_pred=dot(div(v),p_n)*dx
+    eq_pred=eq-pres_dg_pred
 
     return eq_pred
 
@@ -289,7 +292,7 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
     v,q = TestFunctions(W)
     f =Function(U)
 	
-    #normal and essentially reynolds number
+    #outwards pointing normal,1/reynolds number,time stepping params
     n=FacetNormal(W.mesh())
     nu=1
     nue=Constant(1) 
@@ -297,7 +300,7 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
     T=1500
     print("dt is: ",dt)
 
-    #boundary conditions
+    #normal boundary conditions
     bc=[]
     bc0=DirichletBC(W.sub(0),Constant((0.0,0.0)),1)
     bc.append(bc0)
@@ -308,9 +311,14 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
     bc3=DirichletBC(W.sub(0),Constant((0.0,0.0)),4)#plane y=L
     bc.append(bc3)
 
+    #tangential boundary conditions
     t=1
     x, y = SpatialCoordinate(mesh)
-    bc_tang=Function(U).project(as_vector([-x*100*(x-1)/25*U_inf*(t)*dt,0]))
+    bc_tang=[]
+    bc_tang.append([Function(U).project(as_vector([-x*100*(x-1)/25*U_inf*(t)*dt,0])),4])
+    bc_tang.append([Function(U),1])
+    bc_tang.append([Function(U),2])
+    bc_tang.append([Function(U),3])
 
     print("\nCALCULATE INITIAL VALUES")########################################################
     #calculate inital value for pressure with potential flow
@@ -332,6 +340,7 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
     eq_pres=buildPressureForm(W,U,P,dt,mesh,U_inf,bc_tang,div_old)
     eq_corr=buildCorrectorForm(W,U,P,dt,mesh,U_inf,v_knew_hat,beta)
 
+    #initialise time stepping
     u_n.assign(u_init_sol)
     p_n.assign(p_init_sol)
 
@@ -346,17 +355,16 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
 
 
     print("\nBUILD PROBLEM AND SOLVERS")########################################################
-    #predictor only contains tangential BC
+    #predictor
     nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
     def nullspace_basis(T):
         return VectorSpaceBasis(constant=True)
     appctx = {'trace_nullspace': nullspace_basis}
-
     w_pred = Function(U)
     predictor = LinearVariationalProblem(lhs(eq_pred),rhs(eq_pred), w_pred)
     solver_pred = LinearVariationalSolver(predictor, solver_parameters=parameters_velo)
 
-    #pressure
+    #pressure update
     w_pres = Function(W)
     nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
     pressure= LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres),w_pres,bc)#BC RIGHT???
@@ -366,8 +374,6 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
     w_corr = Function(U)
     corrector= LinearVariationalProblem(lhs(eq_corr),rhs(eq_corr), w_corr,bc)
     solver_corr = LinearVariationalSolver(corrector,solver_parameters=parameters_corr)
-        
-   
 
     print("\nTIME PROGRESSING")################################################################
     #outerloop for time progress
@@ -376,13 +382,11 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
 
         #time-dependent boundary
         print("t is: ",t)
-        inflow=-x*100*(x-1)/25*U_inf*((1+t)*dt)### why is my inflow getting lower
-        bc_tang.project(as_vector([inflow,0]))
+        bc_tang[0]=Function(U).project(as_vector([-x*100*(x-1)/25*U_inf*((1+t)*dt),0]))
         
-        #innerloop for progressing Picard iteration       
+        #update picard iteration       
         counter=0
         v_k.assign(u_n)
-
 
         print("\n1)PREDICTOR")##################################################################
         while(True):  
