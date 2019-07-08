@@ -1,47 +1,61 @@
 from firedrake import *
 import numpy as np
 import matplotlib.pyplot as plt
-def both(expr):
-    return expr('+') + expr('-')
+from helpers.both import *
+#from operators import *
 
-def plot_velo_pres(u,p,title):
-    plot(u)
-    plt.title(str(title+" Velocity"))
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.show()
-    plot(p)
-    plt.title(str(title+" Pressure"))
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.show()
+def DiffusionOperator(nue,u,v,n,bc_tang,mesh):
 
-def plot_convergence_velo_pres(error_velo,error_pres,list_N):
-    # velocity convergence plot
-    fig = plt.figure()
-    axis = fig.gca()
-    linear=error_velo[::-1]
-    axis.loglog(list_N,linear,label='$||e_u||_{\infty}$')
-    axis.loglog(list_N,0.0001*np.power(list_N,2),'r*',label="second order")
-    axis.loglog(list_N,0.0001*np.power(list_N,1),'g*',label="first order")
-    axis.set_xlabel('$2**Level$')
-    axis.set_ylabel('$Error$')
-    axis.legend()
-    plt.show()
+    #Stability params for Laplacian
+    alpha=Constant(10)#interior
+    gamma=Constant(10) #exterior
+    h=CellVolume(mesh)/FacetArea(mesh)  
+    havg=avg(CellVolume(mesh))/FacetArea(mesh)
+    kappa1=nue*alpha/havg
+    kappa2=nue*gamma/h
 
-    #pressure convergence plot
-    fig = plt.figure()
-    axis = fig.gca()
-    linear=error_pres[::-1]
-    axis.loglog(list_N,linear,label='$||e_p||_{\infty}$')
-    axis.loglog(list_N,0.1*np.power(list_N,2),'r*',label="second order")
-    axis.loglog(list_N,0.1*np.power(list_N,1),'g*',label="first order")
-    axis.set_xlabel('$2**Level$')
-    axis.set_ylabel('$Error$')
-    axis.legend()
-    plt.show()
+    #laplacian for interior domain and interior facets
+    lapl_dg=(
+            nue*inner(grad(u),grad(v))*dx
+            -inner(nue*avg(grad(v)),both(outer(u,n)))*dS
+            -inner(both(outer(v,n)),nue*avg(grad(u)))*dS
+            +kappa1*inner(both(outer(u,n)),both(outer(v,n)))*dS
+    )
 
-    #INITAL VALUES: solve the following from for initial values
+    for [bc_t,m] in bc_tang:
+        #laplacian for exterior facets
+        lapl_dg+=(
+            -inner(outer(v,n),nue*grad(u-bc_t))*ds(m) 
+            -inner(outer(u-bc_t,n),nue*grad(v))*ds(m)
+            +kappa2*inner(v,u-bc_t)*ds(m)
+        )
+    
+    return -lapl_dg
+
+def AdvectionOperator(u_linear,u,v,n,bc_tang):
+    #interior flux
+    u_flux_int = 0.5*(dot(u_linear, n)+ abs(dot(u_linear, n))) 
+
+    #advection in for interior domain and interior facets
+    adv_dg=(
+        dot(u_linear,div(outer(v,u)))*dx 
+        -dot((v('+')-v('-')),(u_flux_int('+')*(u('+')) - u_flux_int('-')*(u('-'))))*dS
+    )
+
+    for [bc_t,m] in bc_tang:
+        #advection for exterior facets 
+        u_flux_ext = 0.5*(dot(u_linear,n)*u+abs(dot(u_linear,n))*u+ dot(u_linear,n)*bc_t-abs(dot(u_linear,n))*bc_t) 
+        adv_dg+=(-dot(v,u_flux_ext)*ds(m))
+
+    return -adv_dg
+
+def Product(v,p):
+    #NOTE: v and p can Test-, Trial- or just a Function
+    #called for pressure, forcing, and incompressibility
+    return -dot(v,p)*dx
+
+
+#INITAL VALUES: solve the following from for initial values
 def initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters,dt,bc_tang):
     print("....Solving Stokes problem for initial velocity ....")
 
@@ -95,7 +109,10 @@ def initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters,dt,bc_tang):
 def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters_velo,parameters_pres,dt,bc_tang):
     print("....Solving problem for initial pressure ....")
 
+
+    ############################################################################
     print(".........part1: solve for some non-divergence free velocity field")
+    #functions
     F=TrialFunction(U)
     v=TestFunction(U)
     n=FacetNormal(U.mesh())
@@ -103,46 +120,9 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters_velo,parameters_pr
     #reuse initial velocity
     u_linear=Function(U).assign(u_init)
     
-    #BUILD FORM
-    #Stability params for Laplacian
-    alpha=Constant(10)#interior
-    gamma=Constant(10) #exterior
-    h=CellVolume(mesh)/FacetArea(mesh)  
-    havg=avg(CellVolume(mesh))/FacetArea(mesh)
-    kappa1=nue*alpha/havg
-    kappa2=nue*gamma/h
-
-    #Fluxes for Advection 
-    u_flux_int = 0.5*(dot(u_linear, n)+ abs(dot(u_linear, n))) 
-    
-    #laplacian for interior domain and interior facets
-    lapl_dg=(
-        nue*inner(grad(u_linear),grad(v))*dx
-        -inner(nue*avg(grad(v)),both(outer(u_linear,n)))*dS
-        -inner(both(outer(v,n)),nue*avg(grad(u_linear)))*dS
-        +kappa1*inner(both(outer(u_linear,n)),both(outer(v,n)))*dS
-    )
-
-    #advection in for interior domain and interior facets
-    adv_dg=(
-        dot(u_linear,div(outer(v,u_linear)))*dx 
-        -dot((v('+')-v('-')),(u_flux_int('+')*(u_linear('+')) - u_flux_int('-')*(u_linear('-'))))*dS
-    )
-
-    for bc_t,m in bc_tang:
-        #laplacian for exterior facets
-        lapl_dg+=(
-            -inner(outer(v,n),nue*grad(u_linear-bc_t))*ds((m))
-            -inner(outer(u_linear-bc_t,n),nue*grad(v))*ds((m)) 
-            +kappa2*inner(v,u_linear-bc_t)*ds((m))
-        )
-
-        u_flux_ext = 0.5*(dot(u_linear, n)-dot(-bc_t,n)+abs(dot(-bc_t,n))+ abs(dot(u_linear, n)))  
-        #advection for exterior facets 
-        adv_dg+=(-dot(v,u_linear*u_flux_ext)*ds(m))
-        #adv_dg+=-inner(v,ubar_knew*un)*ds((1,2,3)) 
-
-    #form for projection
+    #projection form
+    lapl_dg=DiffusionOperator(nue,u_linear,v,n,bc_tang,mesh)
+    adv_dg=AdvectionOperator(u_linear,u_linear,v,n,bc_tang)
     eq_init=dot(v,F)*dx-adv_dg+lapl_dg
 
     #solve
@@ -155,17 +135,18 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters_velo,parameters_pr
     ############################################################################
     print("........part2: solve mixed possion problem for initial pressure ")
     
+    #functions
     w,beta = TrialFunctions(W)
     v,q=TestFunctions(W)
     n=FacetNormal(W.mesh())
+
+    #correction form for initial pressure
     f_pres=Function(P).project(div(F_init_sol))#old divergence acts like forcing 
     print("Div error of projected velocity",errornorm(f_pres,Function(P)))
-    force_dg_pres=dot(f_pres,q)*dx#sign right?
-    incomp_dg_pres=div(w)*q*dx
-    pres_dg_pres=div(v)*beta*dx
-
-    #form for pressure solve
-    eq_pres=dot(w,v)*dx+force_dg_pres+incomp_dg_pres+pres_dg_pres 
+    force_dg_pres=Product(f_pres,q)
+    incomp_dg_pres=Product(div(w),q)
+    pres_dg_pres=Product(div(v),beta)
+    eq_pres=dot(w,v)*dx-force_dg_pres-incomp_dg_pres-pres_dg_pres 
 
     #solve
     w_init= Function(W)
@@ -183,62 +164,23 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters_velo,parameters_pr
 def buildPredictorForm(p_init_sol,u_init_sol,nue,mesh,U,P,W,U_inf,dt,bc_tang,v_k,u_n,p_n):
     print("....build predictor")
 
+    #functions
     v_knew=TrialFunction(U)
     v=TestFunction(U)
     n=FacetNormal(U.mesh())
 
-    #functions
+    #implicit midpoint rule
     ubar_k=Constant(0.5)*(u_n+v_k) #init old midstep
-    ubar_knew=Constant(0.5)*(u_n+v_knew) #init new midstep
+    ubar_knew=Constant(0.5)*(u_n+v_knew) #init new midstep  
     
-    #Stability params for Laplacian
-    alpha=Constant(10)#interior
-    gamma=Constant(10) #exterior
-    h=CellVolume(mesh)/FacetArea(mesh)  
-    havg=avg(CellVolume(mesh))/FacetArea(mesh)
-    kappa1=nue*alpha/havg
-    kappa2=nue*gamma/h
-
-    #Fluxes for Advection 
-    u_flux_int = 0.5*(dot(ubar_k, n)+ abs(dot(ubar_k, n))) 
-    
-    #laplacian for interior domain and interior facets
-    lapl_dg=(
-            nue*inner(grad(ubar_knew),grad(v))*dx
-            -inner(nue*avg(grad(v)),both(outer(ubar_knew,n)))*dS
-            -inner(both(outer(v,n)),nue*avg(grad(ubar_knew)))*dS
-            +kappa1*inner(both(outer(ubar_knew,n)),both(outer(v,n)))*dS
-    )
-
-    #advection in for interior domain and interior facets
-    adv_dg=(
-        dot(ubar_k,div(outer(v,ubar_knew)))*dx 
-        -dot((v('+')-v('-')),(u_flux_int('+')*(ubar_knew('+')) - u_flux_int('-')*(ubar_knew('-'))))*dS
-    )
-    
-    for [bc_t,m] in bc_tang:
-        #laplacian for exterior facets
-        lapl_dg+=(
-            -inner(outer(v,n),nue*grad(ubar_knew-bc_t))*ds(m) 
-            -inner(outer(ubar_knew-bc_t,n),nue*grad(v))*ds(m)
-            +kappa2*inner(v,ubar_knew-bc_t)*ds(m)
-        )
-
-        #advection for exterior facets 
-        u_flux_ext = 0.5*(dot(ubar_k, n)-dot(-bc_t,n)+abs(dot(-bc_t,n))+ abs(dot(ubar_k, n)))
-        adv_dg+=(-dot(v,ubar_knew*u_flux_ext)*ds(m))
-        #adv_dg+=-inner(v,ubar_knew*un)*ds((1,2,3)) 
-
-
+    lapl_dg=DiffusionOperator(nue,ubar_knew,v,n,bc_tang,mesh)
+    adv_dg=AdvectionOperator(ubar_k,ubar_knew,v,n,bc_tang)
+    pres_dg=Product(div(v),p_n)
+   
     #Time derivative
     time=1/Constant(dt)*inner(v_knew-u_n,v)*dx
 
-    #TODO: FORMS------------------------------------------- 
-    eq=time-adv_dg+lapl_dg
-
-    #form for predictor
-    pres_dg_pred=dot(div(v),p_n)*dx
-    eq_pred=eq-pres_dg_pred
+    eq_pred=time+adv_dg-lapl_dg+pres_dg
 
     return eq_pred
 
@@ -248,11 +190,11 @@ def buildPressureForm(W,U,P,dt,mesh,U_inf,bc_tang,div_old):
     w,beta = TrialFunctions(W)
     v,q = TestFunctions(W)
 
-    force_dg_pres=dot(div_old/dt ,q)*dx
-    incomp_dg_pres=div(w)*q*dx
-    pres_dg_pres=div(v)*beta*dx
+    force_dg_pres=Product(div_old/dt ,q)
+    incomp_dg_pres=Product(div(w) ,q)
+    pres_dg_pres=Product(div(v),beta)
     
-    eq_pres=dot(w,v)*dx-force_dg_pres+incomp_dg_pres+pres_dg_pres 
+    eq_pres=dot(w,v)*dx+force_dg_pres-incomp_dg_pres-pres_dg_pres 
 
     return eq_pres
 
@@ -281,8 +223,8 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
     U_inf=Constant(U_in)
    
     #function spaces
-    U = FunctionSpace(mesh, "RTCF",2)
-    P = FunctionSpace(mesh, "DG", 1)
+    U = FunctionSpace(mesh, "RTCF",1)
+    P = FunctionSpace(mesh, "DG", 0)
     W = U*P
     
     #functions
@@ -378,12 +320,11 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
     t = 1
     while t < T :
 
-        #time-dependent boundary
+        #update time-dependent boundary
         print("t is: ",t*dt)
         print("n is: ",t)
-        inflow=-x*100*(x-1)/25*U_inf*((1+t)*dt)### why is my inflow getting lower
-        bc_tang.project(as_vector([inflow,0]))
-        
+        bc_tang[0]=[bc_tang[0][0].project(as_vector([-x*100*(x-1)/25*U_inf*((1+t)*dt),0])),4]
+
         #update picard iteration       
         counter=0
         v_k.assign(u_n)
@@ -406,7 +347,7 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
         
 
         
-       # plot(w_pred)
+      #  plot(w_pred)
        # plt.show()
 
         print("\n2) PRESSURE UPDATE")#########################################################
@@ -418,7 +359,7 @@ def solve_problem(mesh_size,parameters_corr, parameters_pres,parameters_velo_ini
         solver_pres.solve()
         wsol,betasol=w_pres.split()
         print(assemble(betasol).dat.data)
-        p_knew=Function(P).assign(p_n-betasol)
+        p_knew=Function(P).assign(p_n+betasol)
 
         #plot(p_knew)
         #plt.show()
@@ -554,7 +495,7 @@ parameters_corr={"ksp_type": "cg",
 
 error_velo=[]
 error_pres=[]
-refin=range(5,6)
+refin=range(6,7)
 list_N=[]
 for n in refin:#increasing element number
     
