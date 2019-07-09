@@ -1,6 +1,7 @@
 from firedrake import *
+from helpers.both import both 
 
-def DiffusionOperator(nue,u,v,n,bc_tang,mesh):
+def diffusion_operator(nue,u,v,n,bc_tang,mesh):
 
     #Stability params for Laplacian
     alpha=Constant(10)#interior
@@ -28,7 +29,7 @@ def DiffusionOperator(nue,u,v,n,bc_tang,mesh):
     
     return -lapl_dg
 
-def AdvectionOperator(u_linear,u,v,n,bc_tang):
+def advection_operator(u_linear,u,v,n,bc_tang):
     #interior flux
     u_flux_int = 0.5*(dot(u_linear, n)+ abs(dot(u_linear, n))) 
 
@@ -45,7 +46,8 @@ def AdvectionOperator(u_linear,u,v,n,bc_tang):
 
     return -adv_dg
 
-def Product(v,p):
+#integration by parts product 
+def ibp_product(v,p):
     #NOTE: v and p can Test-, Trial- or just a Function
     #called for pressure, forcing, and incompressibility
     return -dot(v,p)*dx

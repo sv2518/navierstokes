@@ -1,10 +1,15 @@
 from firedrake import *
 from forms.operators import *
+from solver.parameters import *
 
 
 #INITAL VALUES: solve the following from for initial values
-def initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters,dt,bc_tang):
+def initial_velocity(W,dt,mesh,bc,nue):
     print("....Solving Stokes problem for initial velocity ....")
+    parameters_velo_initial=defineSolverParameters()[4]
+
+    #extract bc and parameters
+    [bc_norm,bc_tang]=bc
 
     #Functions and parameters
     u,p = TrialFunctions(W)
@@ -12,23 +17,29 @@ def initialVelocity(W,U,P,mesh,nue,bc,U_inf,parameters,dt,bc_tang):
     n=FacetNormal(W.mesh())
 
     #Form for Stokes problem
-    lapl_dg=DiffusionOperator(nue,u,v,n,bc_tang,mesh)    
-    incomp_dg=Product(u,q)
-    pres_dg=Product(v,p)
+    lapl_dg=diffusion_operator(nue,u,v,n,bc_tang,mesh)    
+    incomp_dg=ibp_product(div(u),q)
+    pres_dg=ibp_product(div(v),p)
     eq_init=incomp_dg-pres_dg+lapl_dg
 
     #solve
     w_init= Function(W)
-    init = LinearVariationalProblem(lhs(eq_init),rhs(eq_init), w_init,bc)
-    solver = LinearVariationalSolver(init, solver_parameters=parameters)
+    init = LinearVariationalProblem(lhs(eq_init),rhs(eq_init), w_init,bc_norm)
+    solver = LinearVariationalSolver(init, solver_parameters=parameters_velo_initial)
     solver.solve()
     u_init_sol,p_init_sol=w_init.split()
     
     return u_init_sol
 
-def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters_velo,parameters_pres,dt,bc_tang):
+def initial_pressure(W,dt,mesh,nue,bc,u_init):
     print("....Solving problem for initial pressure ....")
 
+    #extract bcs, parameters and subspace
+    [bc_norm,bc_tang]=bc
+    parameters_pres=defineSolverParameters()[1]
+    parameters_velo=defineSolverParameters()[3]
+    U=W.sub(0)
+    P=W.sub(1)
 
     ############################################################################
     print(".........part1: solve for some non-divergence free velocity field")
@@ -41,13 +52,13 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters_velo,parameters_pr
     u_linear=Function(U).assign(u_init)
     
     #projection form
-    lapl_dg=DiffusionOperator(nue,u_linear,v,n,bc_tang,mesh)
-    adv_dg=AdvectionOperator(u_linear,u_linear,v,n,bc_tang)
+    lapl_dg=diffusion_operator(nue,u_linear,v,n,bc_tang,mesh)
+    adv_dg=advection_operator(u_linear,u_linear,v,n,bc_tang)
     eq_init=dot(v,F)*dx-adv_dg+lapl_dg
 
     #solve
     w_init= Function(U)
-    init = LinearVariationalProblem(lhs(eq_init),rhs(eq_init), w_init,bc)
+    init = LinearVariationalProblem(lhs(eq_init),rhs(eq_init), w_init,bc_norm)
     solver = LinearVariationalSolver(init, solver_parameters=parameters_velo)
     solver.solve()
     F_init_sol=Function(U).assign(w_init)
@@ -61,16 +72,17 @@ def initialPressure(W,U,P,mesh,nue,bc,u_init,U_inf,parameters_velo,parameters_pr
     n=FacetNormal(W.mesh())
 
     #correction form for initial pressure
-    f_pres=Function(P).project(div(F_init_sol))#old divergence acts like forcing 
+    #divergence of projected velocity acts like forcing 
+    f_pres=Function(P).project(div(F_init_sol))
     print("Div error of projected velocity",errornorm(f_pres,Function(P)))
-    force_dg_pres=Product(f_pres,q)
-    incomp_dg_pres=Product(div(w),q)
-    pres_dg_pres=Product(div(v),beta)
+    force_dg_pres=ibp_product(f_pres,q)
+    incomp_dg_pres=ibp_product(div(w),q)
+    pres_dg_pres=ibp_product(div(v),beta)
     eq_pres=dot(w,v)*dx-force_dg_pres-incomp_dg_pres-pres_dg_pres 
 
     #solve
     w_init= Function(W)
-    init = LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres), w_init,bc)
+    init = LinearVariationalProblem(lhs(eq_pres),rhs(eq_pres), w_init,bc_norm)
     nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
     def nullspace_basis(T):
         return VectorSpaceBasis(constant=True)
