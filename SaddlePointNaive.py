@@ -2,47 +2,7 @@ from firedrake import *
 import numpy as np
 import matplotlib.pyplot as plt
 
-def both(expr):
-    return expr('+') + expr('-')
-
-def plot_velo_pres(u,p,title):
-    plot(u)
-    plt.title(str(title+" Velocity"))
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.show()
-    plot(p)
-    plt.title(str(title+" Pressure"))
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.show()
-
-def plot_convergence_velo_pres(error_velo,error_pres,list_N):
-    # velocity convergence plot
-    fig = plt.figure()
-    axis = fig.gca()
-    linear=error_velo[::-1]
-    axis.loglog(list_N,linear,label='$||e_u||_{\infty}$')
-    axis.loglog(list_N,0.0001*np.power(list_N,2),'r*',label="second order")
-    axis.loglog(list_N,0.0001*np.power(list_N,1),'g*',label="first order")
-    axis.set_xlabel('$2**Level$')
-    axis.set_ylabel('$Error$')
-    axis.legend()
-    plt.show()
-
-    #pressure convergence plot
-    fig = plt.figure()
-    axis = fig.gca()
-    linear=error_pres[::-1]
-    axis.loglog(list_N,linear,label='$||e_p||_{\infty}$')
-    axis.loglog(list_N,0.1*np.power(list_N,2),'r*',label="second order")
-    axis.loglog(list_N,0.1*np.power(list_N,1),'g*',label="first order")
-    axis.set_xlabel('$2**Level$')
-    axis.set_ylabel('$Error$')
-    axis.legend()
-    plt.show()
-
-def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
+def kovasznay(mesh_size, dimension):
     #generate mesh
     LX=2.0
     LY=2.0
@@ -50,8 +10,8 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     mesh.coordinates.dat.data[:,0]-=0.5
 
     #function spaces
-    U = FunctionSpace(mesh, "RTCF",1)
-    P = FunctionSpace(mesh, "DG", 0)
+    U = FunctionSpace(mesh, "RTCF",dimension)
+    P = FunctionSpace(mesh, "DG", dimension-1)
     W = U*P
 
     #functions
@@ -179,70 +139,3 @@ def solve_problem(mesh_size, parameters, aP=None, block_matrix=False):
     #L2 and HDiv the same...why?
     N=2 ** mesh_size
     return w,err_u,err_p,N
-
-#####################MAIN##########################
-parameters={
-    #"ksp_type": "fgmres",
-    #"ksp_rtol": 1e-8,
-   # "pc_type": "fieldsplit",
-  #  "pc_fieldsplit_type": "schur",
-   # "pc_fieldsplit_schur_fact_type": "full",
-   # "fieldsplit_0_ksp_type": "cg",
-   # "fieldsplit_0_pc_type": "ilu",
-    #"fieldsplit_0_ksp_rtol": 1e-8,
-    #"fieldsplit_1_ksp_type": "cg",
-    #"fieldsplit_1_ksp_rtol": 1e-8,
-    #"pc_fieldsplit_schur_precondition": "selfp",
-    #"fieldsplit_1_pc_type": "hypre"
-    "ksp_type": "gmres",
-    "ksp_converged_reason": None,
-   "ksp_gmres_restart":100,
-    "ksp_rtol":1e-12,
-    "pc_type":"lu",
-    "pc_factor_mat_solver_type": "mumps",
-    "mat_type":"aij"
-}
-
-error_velo=[]
-error_pres=[]
-refin=range(4,9)
-list_N=[]
-for n in refin:#increasing element number
-    
-    #solve
-    w,err_u,err_p,N = solve_problem(n, parameters,aP=None, block_matrix=False)
-    u,p=w.split()
-    error_velo.append(err_u)
-    error_pres.append(err_p)
-    list_N.append(N)
-
-    
-    #plot solutions
-    File("poisson_mixed_velocity_.pvd").write(u)
-    File("poisson_mixed_pressure_.pvd").write(p)
-    try:
-        import matplotlib.pyplot as plt
-    except:
-        warning("Matplotlib not imported")
-
-    #plot solutions
-    try:
-        plot_velo_pres(u,p)
-    except:
-        warning("Cannot show figure")
-
-#plot convergence
-plot_convergence_velo_pres(error_velo,error_pres,list_N)
-
-#plot actual errors in L2
-plt.plot(refin,np.array([3.9,1.2,0.33,0.093,0.026]),label="paper")
-plt.plot(refin,np.array(error_pres)/100,label="mine/100")
-plt.legend()
-plt.title("L2 error pressure")
-plt.show()
-
-plt.plot(refin,np.array([0.23,0.062,0.016,0.0042,0.0011]),label="paper")
-plt.plot(refin,error_velo,label="mine")
-plt.legend()
-plt.title("L2 error velocity")
-plt.show()

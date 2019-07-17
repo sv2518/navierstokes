@@ -2,9 +2,10 @@ from firedrake import *
 from forms.spcsforms import *
 from solver.initialvalues import *
 from solver.parameters import *
+import matplotlib.pyplot as plt
 
 #standard pressure correction scheme
-def spcs(W,mesh,nue,bc,U_inf,dt,T,outfile):
+def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None):
 
     #functions and normal
     U=W.sub(0)
@@ -15,19 +16,22 @@ def spcs(W,mesh,nue,bc,U_inf,dt,T,outfile):
     n=FacetNormal(W.mesh())
 
     #get solver parameters
-    [parameters_corr,parameters_pres,parameters_pres_better,parameters_velo,parameters_velo_initial]=defineSolverParameters()
+    [parameters_corr,parameters_pres,parameters_pres_better,parameters_velo,parameters_velo_initial,nn]=defineSolverParameters()
 
     #split up boundary conditions
-    [bc_norm,bc_tang]=bc
+    [bc_norm,bc_tang,bc_expr]=bc
 
     print("\nCALCULATE INITIAL VALUES")########################################################
-    #calculate inital value for pressure with potential flow
-    u_init_sol=initial_velocity(W,dt,mesh,bc,nue)
+    #check if analytical initial condition is given
+    if(u_init):
+        u_init_sol=Function(U).project(u_init)
+    else:
+        #calculate inital velocity with potential flow
+        u_init_sol=initial_velocity(W,dt,mesh,bc,nue)
 
     #with that initial value calculate intial pressure 
     # with Poission euqation including some non-divergence free velocity
     p_init_sol=initial_pressure(W,dt,mesh,nue,bc,u_init_sol)
-
 
     print("\nBUILD FORMS")#####################################################################
     v_k=Function(U)
@@ -64,7 +68,7 @@ def spcs(W,mesh,nue,bc,U_inf,dt,T,outfile):
     w_upd = Function(W)
     nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
     update= LinearVariationalProblem(lhs(eq_upd),rhs(eq_upd),w_upd,bc_norm)#BC RIGHT???
-    solver_upd= LinearVariationalSolver(update,solver_parameters=parameters_pres_better,appctx=appctx)
+    solver_upd= LinearVariationalSolver(update,solver_parameters=parameters_pres,appctx=appctx)
         
     #corrector
     w_corr = Function(U)
@@ -73,15 +77,18 @@ def spcs(W,mesh,nue,bc,U_inf,dt,T,outfile):
 
     print("\nTIME PROGRESSING")################################################################
     #outerloop for time progress
-    t = 1
-    while t < T :
-
+    n = 1
+    while n < T :
         #update time-dependent boundary
-        print("t is: ",t*dt)
-        print("n is: ",t)
-        x, y = SpatialCoordinate(mesh)
-        bc_tang[0]=[bc_tang[0][0].project(as_vector([-x*100*(x-1)/25*U_inf*((1+t)*dt),0])),4]
+        t.assign(n)
+        print("t is: ",n*dt)
+        print("n is: ",n)
+        bc_tang[0]=[bc_tang[0][0].project(bc_expr),4]
+        bc_tang[1]=[bc_tang[1][0].project(bc_expr),1]
+        bc_tang[2]=[bc_tang[2][0].project(bc_expr),2]
+        bc_tang[3]=[bc_tang[3][0].project(bc_expr),3]
 
+      
         #update start value of picard iteration       
         counter=0
         v_k.assign(u_n)
@@ -140,8 +147,8 @@ def spcs(W,mesh,nue,bc,U_inf,dt,T,outfile):
         betasol=Function(P)
 
         #time stepping
-        outfile.write(u_n,p_n,time=t)
-        t += 1     
+        outfile.write(u_n,p_n,time=n)
+        n += 1     
 
     #final time step solution
     sol=Function(W)

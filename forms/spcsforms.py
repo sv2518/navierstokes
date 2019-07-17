@@ -17,7 +17,7 @@ def build_predictor_form(W,dt,mesh,nue,bc_tang,v_k,u_n,p_n):
     ubar_k=Constant(0.5)*(u_n+v_k) #init old midstep
     ubar_knew=Constant(0.5)*(u_n+v_knew) #init new midstep  
     
-    lapl_dg=diffusion_operator(nue,ubar_knew,v,n,bc_tang,mesh)
+    lapl_dg=diffusion_operator(nue,ubar_knew,v,n,bc_tang,mesh,10.)
     adv_dg=advection_operator(ubar_k,ubar_knew,v,n,bc_tang)
     pres_dg=ibp_product(div(v),p_n)
     time=1/Constant(dt)*inner(v_knew-u_n,v)*dx

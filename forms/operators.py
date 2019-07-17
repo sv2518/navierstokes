@@ -1,11 +1,11 @@
 from firedrake import *
 from helpers.both import both 
 
-def diffusion_operator(nue,u,v,n,bc_tang,mesh):
+def diffusion_operator(nue,u,v,n,bc_tang,mesh,stab):
 
     #Stability params for Laplacian
-    alpha=Constant(10)#interior
-    gamma=Constant(10) #exterior
+    alpha=Constant(stab)#interior
+    gamma=Constant(stab) #exterior
     h=CellVolume(mesh)/FacetArea(mesh)  
     havg=avg(CellVolume(mesh))/FacetArea(mesh)
     kappa1=nue*alpha/havg

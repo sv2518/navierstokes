@@ -3,26 +3,24 @@ from solver.parameters import *
 from solver.spcs import *
 
 
-def cavity(mesh_size,dimension):
-    outfile=File("./output/cavity.pvd")
+def cavity(mesh_size,dimension,time_params,re):
+    outfile=File("./output/cavity/cavity.pvd")
 
     #generate mesh
     LX=1.0
     LY=1.0
     mesh = RectangleMesh(2 ** mesh_size, 2 ** mesh_size,Lx=LX,Ly=LY,quadrilateral=True)
-    U_in=1
-    U_inf=Constant(U_in)
    
     #function spaces
     U = FunctionSpace(mesh, "RTCF",dimension)
     P = FunctionSpace(mesh, "DG", dimension-1)
     W = U*P
     
+    
     #1/reynolds number,time stepping params
-    NU=0.01
+    NU=1/re
     nue=Constant(NU) 
-    dt=1/(U_in*(2 ** mesh_size)) #with cfl number
-    T=1500
+    [dt,T]=time_params
     print("dt is: ",dt)
 
     #normal boundary conditions
@@ -39,17 +37,19 @@ def cavity(mesh_size,dimension):
     #tangential boundary conditions
     t=Constant(1)
     x, y = SpatialCoordinate(mesh)
+    bc_expr=as_vector((-x*100*(x-1)/25*U_inf*(t)*dt,0))
+
     bc_tang=[]
-    bc_tang.append([Function(U).project(as_vector([-x*100*(x-1)/25*U_inf*(t)*dt,0])),4])
+    bc_tang.append([Function(U).project(bc_expr),4])
     bc_tang.append([Function(U),1])
     bc_tang.append([Function(U),2])
     bc_tang.append([Function(U),3])
 
     #gather bcs
-    bc=[bc_norm,bc_tang]
+    bc=[bc_norm,bc_tang,bc_expr]
 
     #run standard pressure correction scheme to solve Navier Stokes equations
-    sol=spcs(W,mesh,nue,bc,U_inf,dt,T,outfile)
+    sol=spcs(W,mesh,nue,bc,U_inf,dt,T+1,outfile,bc_expr)
 
     N=2 ** mesh_size
     return sol,0,0,N
