@@ -24,9 +24,9 @@ for D in refin:
     # due to accuracy considerations rather than stability
     print(D)
    
-    dt=0.2*pi*pi/(2*2**N)#0.001#pi/(2 ** N)*0.6
+    dt=0.06*pi*pi/(2*2**N)#0.001#pi/(2 ** N)*0.6
     print(dt)
-    T=10#(pi/2)/dt
+    T=5#(pi/2)/dt
     t=[dt,T]
     #solve
     w,err_u,err_p,dx = taylorgreen(N, D,t,RE)
