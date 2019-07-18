@@ -15,10 +15,6 @@ N=5#5#fe number (space discretisation)
 u=exp(-2*1/RE)
 print(u)
 cfl=[0.5,0.1,0.05,0.01]
-dt=cfl*pi/(2*2**N)
-print(dt)
-T=1/dt#(pi/2)/dt
-t=[dt,T]
 
 #0.0018998908567869968, 4.344594410393178e-05, 4.254379857171822e-05
 
@@ -32,11 +28,16 @@ plot_convergence_velo_pres(tmp0,tmp,[2,3,4],0.000001)
 
 
 #increasing spatial refinement (number of elements)
-for D in refin:
+for D,cfl in refin,cfl:
     #time stepping
     # cfl number 4 restrics size of dt
     # due to accuracy considerations rather than stability
     print(D)
+
+    dt=cfl*pi/(2*2**N)
+    print(dt)
+    T=1/dt#(pi/2)/dt
+    t=[dt,T]
    
     #solve
     w,err_u,err_p,dx = taylorgreen(N, D,t,RE)
