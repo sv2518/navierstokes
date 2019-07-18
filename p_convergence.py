@@ -59,11 +59,11 @@ for cfl in cflList:
 print(error_velo)
 print(error_pres)
 print(list_D)
-
+print("\n\n")
 print(errorList)
 
 for cfl in cflList:
-    plot_convergence_velo_pres(error_velo,error_pres,list_D,0.0001)
+    plot_convergence_velo_pres(cfl[0],cfl[1],cfl[2],0.0001)
 
     
 
