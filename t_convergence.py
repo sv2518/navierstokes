@@ -1,6 +1,7 @@
 from tests.taylorgreen import *
 import matplotlib.pyplot as plt
 from helpers.plot_convergence_velo_pres import plot_convergence_velo_pres
+import math
 
 #####################MAIN#############################
 #plottin spatial convergence for taylor green vortices
@@ -9,16 +10,33 @@ error_velo=[]
 error_pres=[]
 list_dx=[]
 
-refin=range(5,10)#fe number (space discretisation)
+
+RE=1
+refin=[0.5,0.25,0.1,0.05]#0.025,0.01]
+cfl=4
+tmp0=[0.018664174119308548, 0.004345185588971723, 0.0007046155441139323]
+tmp=[0.018664174119308548, 0.004345185588971723, 0.0007046155441139323]
+
 D=1#space dimension
-RE=1#reynolds number
+
+#RE=100
+#refin=[0.2,0.1,0.05,0.025,0.0125]
+#cfl=4
+
+#re1 cfl4
+#tmp0=[0.03636248052614443, 0.008123268566361015, 0.001247392864111384, 0.00040031105464151916, 0.00018844227829679352]
+#tmp=[0.03636248052614443, 0.008123268566361015, 0.001247392864111384, 0.00040031105464151916, 0.00018844227829679352]
+
+#plot_convergence_velo_pres(tmp0,tmp,refin,0.1)
 
 #increasing spatial refinement (number of elements)
-for N in refin:
+for dt in refin:
     #time stepping
-    dt=(4*pi**2/(2*2 ** N))
-    print(dt)
-    T=10#pi/8/dt
+    u=exp(-2*1/RE)
+    print(u)
+    N=math.floor(math.log(cfl*pi/(2*u*dt))/math.log(2))
+    print(N)
+    T=1/dt
     t=[dt,T]
     #solve
     w,err_u,err_p,dx = taylorgreen(N, D,t,RE)
@@ -32,7 +50,7 @@ for N in refin:
 print(error_velo)
 print(error_pres)
 print(list_dx)
-plot_convergence_velo_pres(error_velo,error_pres,list_dx,10)
+plot_convergence_velo_pres(error_velo,error_pres,list_dx,1)
 
     
 

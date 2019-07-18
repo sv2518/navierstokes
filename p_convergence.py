@@ -9,10 +9,15 @@ error_velo=[]
 error_pres=[]
 list_D=[]
 
-refin=range(1,7)#space dimension
+refin=range(2,7)#space dimension
 RE=1#reynolds number
-N=8#5#fe number (space discretisation)
+N=9#5#fe number (space discretisation)
 
+
+#0.0018998908567869968, 4.344594410393178e-05, 4.254379857171822e-05
+
+#0.006135873317419445
+#2.2213806666824714
 tmp0=[0.004276849913502535, 0.00022663213303872332, 0.00022079643162701418,0]
 tmp=[1.1584581347037219e-05, 3.5735907263755316e-05, 8.047774788336951e-05,0]
 plot_convergence_velo_pres(tmp0,tmp,[1,2,3,4],0.000001)
@@ -26,7 +31,7 @@ for D in refin:
    
     dt=0.06*pi*pi/(2*2**N)#0.001#pi/(2 ** N)*0.6
     print(dt)
-    T=5#(pi/2)/dt
+    T=2#(pi/2)/dt
     t=[dt,T]
     #solve
     w,err_u,err_p,dx = taylorgreen(N, D,t,RE)
