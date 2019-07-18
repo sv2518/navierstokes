@@ -1,6 +1,7 @@
 from tests.taylorgreen import *
 import matplotlib.pyplot as plt
 from helpers.plot_convergence_velo_pres import plot_convergence_velo_pres
+import numpy as np
 
 #####################MAIN#############################
 #plottin spatial convergence for taylor green vortices
@@ -11,25 +12,20 @@ list_D=[]
 refin=range(1,5)#space dimension
 RE=1#reynolds number
 N=5#5#fe number (space discretisation)
-u=exp(-2*1/RE)
-print(u)
-cflList=[[8,4,8/3,2],[4,2,4/3,1],[2,1,2/3,0.5],[1,0.5,1/3,0.25]]
-#cflList=[[2,2/4,2/9,2/16]]
+#cflList=[[8,4,8/3,2],[4,2,4/3,1],[2,1,2/3,0.5],[1,0.5,1/3,0.25]]
+cflList=[[0.5,0.5/4,0.5/9,0.5/16]]
 #0.0018998908567869968, 4.344594410393178e-05, 4.254379857171822e-05
 
 #0.006135873317419445
 #2.2213806666824714
 #tmp0=[0.006913096228617835, 0.00337689362447338, 0.001984438532709451, 0.00080584031028125772]#[7.59925505679146e-05, 7.57161819435765e-05,7.570697664648768e-05]
 #0.006689293745712409, 0.009262522265189903, 0.0025201446727629055, 0.003776870855408938
-tmp0=[0.006689293745712407, 0.0033768936244733764, 0.000421389541237124, 0.0003333310948737938]
+#0.003879891762566281, 0.00033056567258607505
+tmp0=[3.87989176e-03, 3.30565673e-04, 1.66330960e-04, 4.48729506e-05]#1,1/4,..
 tmp=[0.12506863431237716, 0.0015602447017334254, 0.0003541209172361233, 0.0002269698665969197]
 plot_convergence_velo_pres(tmp0,tmp,[1,2,3,4],0.000001)
 
-tmp0=[0.006689293745712407, 0.0033768936244733764, 0.000421389541237124, 0.0003333310948737938]
-tmp=[0.12506863431237716, 0.0015602447017334254, 0.0003541209172361233, 0.0002269698665969197]
-plot_convergence_velo_pres(tmp0,tmp,[1,2,3,4],0.000001)
-
-
+#0.08802591193613027, 0.007365619748701712
 
 
 #increasing spatial refinement (number of elements)
@@ -55,10 +51,10 @@ for cfl in cflList:
         error_velo.append(err_u)
         error_pres.append(err_p)
         list_D.append(D)
-        errorList.append([error_velo,error_pres,list_D])
         print(error_velo)
         print(error_pres)
         c+=1
+    errorList.append([error_velo,error_pres,list_D])
 
 
 #convergence plots
@@ -70,6 +66,8 @@ print(errorList)
 
 for cfl in cflList:
     plot_convergence_velo_pres(cfl[0],cfl[1],cfl[2],0.0001)
+
+matplotlib.pyplot.show()
 
     
 
