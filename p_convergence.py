@@ -28,13 +28,14 @@ plot_convergence_velo_pres(tmp0,tmp,[2,3,4],0.000001)
 
 
 #increasing spatial refinement (number of elements)
-for D,cfl in refin,cfl:
+c=0
+for D in refin:
     #time stepping
     # cfl number 4 restrics size of dt
     # due to accuracy considerations rather than stability
     print(D)
 
-    dt=cfl*pi/(2*2**N)
+    dt=cfl[c]*pi/(2*2**N)
     print(dt)
     T=1/dt#(pi/2)/dt
     t=[dt,T]
@@ -47,6 +48,7 @@ for D,cfl in refin,cfl:
     list_D.append(D)
     print(error_velo)
     print(error_pres)
+    c+=1
 
 
 #convergence plots
