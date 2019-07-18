@@ -14,7 +14,8 @@ RE=1#reynolds number
 N=5#5#fe number (space discretisation)
 u=exp(-2*1/RE)
 print(u)
-cfl=[0.5,0.1,0.05,0.01]
+cflList=[[4,2,1,0.5],[2,1,0.5,0.25],[1,0.5,0.25,0.125],
+[0.4,0.2,0.1,0.05],[0.2,0.1,0.05,0.025],[0.1,0.05,0.025,0.0125]]
 
 #0.0018998908567869968, 4.344594410393178e-05, 4.254379857171822e-05
 
@@ -28,34 +29,39 @@ plot_convergence_velo_pres(tmp0,tmp,[2,3,4],0.000001)
 
 
 #increasing spatial refinement (number of elements)
-c=0
-for D in refin:
-    #time stepping
-    # cfl number 4 restrics size of dt
-    # due to accuracy considerations rather than stability
-    print(D)
+errorList=[]
+for cfl in cflList:
+    c=0
+    for D in refin:
+        #time stepping
+        # cfl number 4 restrics size of dt
+        # due to accuracy considerations rather than stability
+        print(D)
 
-    dt=cfl[c]*pi/(2*2**N)
-    print(dt)
-    T=1/dt#(pi/2)/dt
-    t=[dt,T]
-   
-    #solve
-    w,err_u,err_p,dx = taylorgreen(N, D,t,RE)
-    u,p=w.split()
-    error_velo.append(err_u)
-    error_pres.append(err_p)
-    list_D.append(D)
-    print(error_velo)
-    print(error_pres)
-    c+=1
+        dt=cfl[c]*pi/(2*2**N)
+        print(dt)
+        T=1/dt#(pi/2)/dt
+        t=[dt,T]
+    
+        #solve
+        w,err_u,err_p,dx = taylorgreen(N, D,t,RE)
+        u,p=w.split()
+        error_velo.append(err_u)
+        error_pres.append(err_p)
+        list_D.append(D)
+        errorList.append([error_velo,error_pres,list_D])
+        print(error_velo)
+        print(error_pres)
+        c+=1
 
 
 #convergence plots
 print(error_velo)
 print(error_pres)
 print(list_D)
-plot_convergence_velo_pres(error_velo,error_pres,list_D,0.0001)
+
+for cfl in cflList:
+    plot_convergence_velo_pres(error_velo,error_pres,list_D,0.0001)
 
     
 
