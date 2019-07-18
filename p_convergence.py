@@ -15,7 +15,7 @@ N=5#5#fe number (space discretisation)
 u=exp(-2*1/RE)
 print(u)
 cfl=0.6
-dt=0.06*pi/(2*2**N)
+dt=0.01*pi/(2*2**N)
 print(dt)
 T=1/dt#(pi/2)/dt
 t=[dt,T]
