@@ -5,8 +5,7 @@ from helpers.plot_convergence_velo_pres import plot_convergence_velo_pres
 #####################MAIN#############################
 #plottin spatial convergence for taylor green vortices
 
-error_velo=[]
-error_pres=[]
+
 list_D=[]
 
 refin=range(1,5)#space dimension
@@ -14,8 +13,7 @@ RE=1#reynolds number
 N=5#5#fe number (space discretisation)
 u=exp(-2*1/RE)
 print(u)
-cflList=[[4,2,1,0.5],[2,1,0.5,0.25],[1,0.5,0.25,0.125],
-[0.4,0.2,0.1,0.05],[0.2,0.1,0.05,0.025],[0.1,0.05,0.025,0.0125]]
+cflList=[[8,4,8/3,2],[4,2,4/3,1],[2,1,2/3,0.5]]
 
 #0.0018998908567869968, 4.344594410393178e-05, 4.254379857171822e-05
 
@@ -32,6 +30,8 @@ plot_convergence_velo_pres(tmp0,tmp,[2,3,4],0.000001)
 errorList=[]
 for cfl in cflList:
     c=0
+    error_velo=[]
+    error_pres=[]
     for D in refin:
         #time stepping
         # cfl number 4 restrics size of dt
