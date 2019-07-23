@@ -5,7 +5,7 @@ from solver.parameters import *
 import matplotlib.pyplot as plt
 
 #standard pressure correction scheme
-def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None):
+def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None,p_init=None):
 
     #functions and normal
     U=W.sub(0)
@@ -13,7 +13,6 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None):
     u,p = TrialFunctions(W)
     v,q = TestFunctions(W)
     f =Function(U)
-    n=FacetNormal(W.mesh())
 
     #get solver parameters
     [parameters_corr,parameters_pres,parameters_pres_better,parameters_velo,parameters_velo_initial,nn]=defineSolverParameters()
@@ -29,9 +28,20 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None):
         #calculate inital velocity with potential flow
         u_init_sol=initial_velocity(W,dt,mesh,bc,nue)
 
-    #with that initial value calculate intial pressure 
-    # with Poission euqation including some non-divergence free velocity
-    p_init_sol=initial_pressure(W,dt,mesh,nue,bc,u_init_sol)
+    
+    divtest=Function(P).project(div(u_init_sol))
+    print("Div error of initial velocity",errornorm(divtest,Function(P)))
+    plt.show()
+
+    #check in analytical solutions is given
+    if p_init:
+        x,y=SpatialCoordinate(W.mesh())
+        p_init_sol=Function(P).project(p_init)
+    else:
+        #with that initial value calculate intial pressure 
+        # with Poission euqation including some non-divergence free velocity
+        p_init_sol=initial_pressure(W,dt,mesh,nue,bc,u_init_sol)
+    
 
     print("\nBUILD FORMS")#####################################################################
     v_k=Function(U)
@@ -78,15 +88,17 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None):
     print("\nTIME PROGRESSING")################################################################
     #outerloop for time progress
     n = 1
-    while n < T :
+    while n < (T+1) :
         #update time-dependent boundary
         t.assign(n)
         print("t is: ",n*dt)
         print("n is: ",n)
-        bc_tang[0]=[bc_tang[0][0].project(bc_expr),4]
-        bc_tang[1]=[bc_tang[1][0].project(bc_expr),1]
-        bc_tang[2]=[bc_tang[2][0].project(bc_expr),2]
-        bc_tang[3]=[bc_tang[3][0].project(bc_expr),3]
+
+        if bc_tang:
+            bc_tang[0]=[bc_tang[0][0].project(bc_expr),4]
+            bc_tang[1]=[bc_tang[1][0].project(bc_expr),1]
+            bc_tang[2]=[bc_tang[2][0].project(bc_expr),2]
+            bc_tang[3]=[bc_tang[3][0].project(bc_expr),3]
 
       
         #update start value of picard iteration       
@@ -104,7 +116,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None):
             eps=errornorm(v_k,w_pred)#l2 by default          
             counter+=1
             print("Picard iteration counter: ",counter,"Picard iteration norm: ",eps)
-            if(eps<10**(-12)):
+            if(eps<10**(-8)):
                 print("Picard iteration converged")  
                 break      
             else:
@@ -134,6 +146,9 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None):
         solver_corr.solve()
         usol=Function(U).assign(w_corr)
 
+       # plot(usol)
+       # plt.show()
+
         #divtest
         divtest=Function(P).project(div(usol))
         print("Div error of corrector velocity",errornorm(divtest,Function(P)))
@@ -141,14 +156,15 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None):
         #update for next time step
         u_n.assign(usol)
         p_n.assign(p_knew)
-        usol=Function(U)
-        psol=Function(P)
-        wsol=Function(U)
-        betasol=Function(P)
+        #usol=Function(U)
+        #psol=Function(P)
+        #wsol=Function(U)
+        #betasol=Function(P)
 
         #time stepping
         outfile.write(u_n,p_n,time=n)
         n += 1     
+
 
     #final time step solution
     sol=Function(W)

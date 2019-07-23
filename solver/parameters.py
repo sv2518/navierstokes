@@ -1,6 +1,6 @@
 from firedrake import *
 def defineSolverParameters():
-    parameters_velo={'pc_type': 'sor',
+    parameters_velo={'pc_type': 'gamg',
                     'ksp_type': 'gmres',
                     'ksp_rtol': 1.0e-7
     }
