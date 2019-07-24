@@ -21,17 +21,18 @@ print("d is:",D)
 
 cflList=[1]
 u=1
-refin=[0.25,0.1]#,0.025,0.01]
+refin=[2,1,0.5]#,0.025,0.01]
 #increasing spatial refinement (number of elements)
 errorList=[]
 
 
 #monster=[[[0.09330596864195985, 0.0029349957781368806, 0.0009213847526612826], [0.0044647464857818595, 0.003791292417715908, 7.644343640942757e-05], [0.2, 0.1, 0.05]]]
-#tmp0=[0.023173698442726764, 0.00848042110675954, 0.003711205018427097, 0.0014341506033510002, 0.0005381226606168856]
-#for cc in range(0,len(cflList)):
+tmp0=[0.023173698442726764, 0.00848042110675954, 0.003711205018427097, 0.0014341506033510002, 0.0005381226606168856]
+tmp0=[1.0017835759270675, 0.0759705838087938, 0.030803525340143943]
+for cc in range(0,len(cflList)):
         #plot_convergence_velo_pres(monster[cc][0],monster[cc][1],refin,0.1,"hi")
- #       plot_convergence_velo_pres(tmp0,tmp0,refin,100,"hi")
-#plt.show()
+       plot_convergence_velo_pres(tmp0,tmp0,refin,0.1,"hi")
+plt.show()
 for cfl in cflList:
     error_velo=[]
     error_pres=[]
@@ -40,9 +41,9 @@ for cfl in cflList:
         u=1
         print(u)
         nue=1
-        dx=2*u*0.01/(10/D**2)
+        dx=2*u*0.025/(10/D**2)
         print(dx)
-        T=0.5/dt
+        T=2/dt
         t=[dt,T]
         #solve
         w,err_u,err_p,dx = taylorgreen(dx, D,t,RE,True)
