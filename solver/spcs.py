@@ -34,13 +34,13 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None,p_init=None):
     plt.show()
 
     #check in analytical solutions is given
-    if p_init:
-        x,y=SpatialCoordinate(W.mesh())
-        p_init_sol=Function(P).project(p_init)
-    else:
+   # if p_init:
+   #     x,y=SpatialCoordinate(W.mesh())
+   #     p_init_sol=Function(P).project(p_init)
+   # else:
         #with that initial value calculate intial pressure 
         # with Poission euqation including some non-divergence free velocity
-        p_init_sol=initial_pressure(W,dt,mesh,nue,bc,u_init_sol)
+    p_init_sol=initial_pressure(W,dt,mesh,nue,bc,u_init_sol)
     
 
     print("\nBUILD FORMS")#####################################################################
@@ -116,7 +116,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None,p_init=None):
             eps=errornorm(v_k,w_pred)#l2 by default          
             counter+=1
             print("Picard iteration counter: ",counter,"Picard iteration norm: ",eps)
-            if(eps<10**(-8)):
+            if(counter>4):#eps<10**(-8)):
                 print("Picard iteration converged")  
                 break      
             else:

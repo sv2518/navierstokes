@@ -10,14 +10,14 @@ def taylorgreen(dx_size,dimension,time_params,re,periodic=False):
     outfile=File("./output/taylorgreen/taylorgreen.pvd")
 
     #generate mesh
-    LX=pi
-    LY=pi
+    LX=2*pi
+    LY=2*pi
     if periodic:
         mesh = PeriodicRectangleMesh(math.floor(LX/dx_size),math.floor(LX/dx_size),Lx=LX,Ly=LY,quadrilateral=True)
     else:
         mesh = RectangleMesh(math.floor(LX/dx_size),math.floor(LX/dx_size),Lx=LX,Ly=LY,quadrilateral=True)
-    mesh.coordinates.dat.data[:,0]-=pi/2
-    mesh.coordinates.dat.data[:,1]-=pi/2
+    mesh.coordinates.dat.data[:,0]-=pi
+    mesh.coordinates.dat.data[:,1]-=pi
    
     #function spaces
     U = FunctionSpace(mesh, "RTCF",dimension)
@@ -48,8 +48,9 @@ def taylorgreen(dx_size,dimension,time_params,re,periodic=False):
     #tangential boundary conditions
     t=Constant(0)
     x, y = SpatialCoordinate(mesh)
-    ux=-cos(x)*sin(y)*exp(-2*t*nue*dt)
-    uy=sin(x)*cos(y)*exp(-2*t*nue*dt)
+    k=2*pi/LX
+    ux=cos(k*y)*sin(k*x)*exp(-2*LX*k**2*t*nue*dt)
+    uy=-sin(k*y)*cos(k*x)*exp(-2*LX*k**2*t*nue*dt)
     bc_expr=as_vector((ux,uy))
 
     bc_tang=[]
@@ -64,7 +65,7 @@ def taylorgreen(dx_size,dimension,time_params,re,periodic=False):
     bc=[bc_norm,bc_tang,bc_expr]
 
 
-    p_exact=-1/4*(cos(2*x)+cos(2*y))*exp(-4*(T+0.5)*dt*nue)
+    p_exact=-1/4*(cos(2*k*x)+cos(2*k*y))*exp(-4*pi*LX*k**2*(t+0.5)*dt*nue)
 
     #run standard pressure correction scheme to solve Navier Stokes equations
     sol=spcs(W,mesh,nue,bc,0,t,dt,T,outfile,bc_expr,p_exact)
@@ -89,7 +90,7 @@ def taylorgreen(dx_size,dimension,time_params,re,periodic=False):
     #plot(Function(U).project(u_exact))
     #plt.show()
 
-   # plot(Function(U).project(sol.sub(0)-Function(U).project(u_exact)))
-   # plt.show()
+    #plot(Function(U).project(sol.sub(0)-Function(U).project(u_exact)))
+    #plt.show()
     #N=LX/2 ** mesh_size
-    return sol,err_u_inf,err_p_inf,dx_size
+    return sol,err_u,err_p,dx_size
