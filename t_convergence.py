@@ -14,7 +14,7 @@ list_dx=[]
 
 
 
-RE=2*pi
+RE=2*pi*100
 
 D=2#space dimension
 print("d is:",D)
@@ -41,7 +41,7 @@ for cfl in cflList:
         u=1
         print(u)
         nue=1
-        dx=2*u*0.025/(10/D**2)
+        dx=2*u*0.0075/(10/D**2)
         print(dx)
         T=2/dt
         t=[dt,T]
