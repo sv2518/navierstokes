@@ -42,7 +42,7 @@ for cfl in cflList:
         nue=1
         dx=2*u*0.01/(10/D**2)
         print(dx)
-        T=0.1/dt
+        T=0.5/dt
         t=[dt,T]
         #solve
         w,err_u,err_p,dx = taylorgreen(dx, D,t,RE,True)
