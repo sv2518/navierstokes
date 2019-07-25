@@ -45,7 +45,7 @@ def run_p_convergence(cfl_list,order_list,RE,TMAX,XLEN,N,bc_type,output):
         
             #solve
             if bc_type=="periodic":
-                _,err_u,err_p,_ = taylorgreen(dx,D,t_params,RE,periodic=True,output)
+                _,err_u,err_p,_ = taylorgreen(dx,D,t_params,RE,True,output)
             elif bc_type=="dirichlet":
                 _,err_u,err_p,_ = taylorgreen(dx,D,t_params,RE,False,output)
 
