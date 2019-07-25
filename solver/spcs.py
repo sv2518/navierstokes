@@ -5,7 +5,7 @@ from solver.parameters import *
 import matplotlib.pyplot as plt
 
 #standard pressure correction scheme
-def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None,p_init=None):
+def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None,p_init=None,output=False):
 
     #functions and normal
     U=W.sub(0)
@@ -116,7 +116,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None,p_init=None):
             eps=errornorm(v_k,w_pred)#l2 by default          
             counter+=1
             print("Picard iteration counter: ",counter,"Picard iteration norm: ",eps)
-            if(counter>4):#eps<10**(-8)):
+            if(counter>6):#eps<10**(-8)):
                 print("Picard iteration converged")  
                 break      
             else:
@@ -161,8 +161,9 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None,p_init=None):
         #wsol=Function(U)
         #betasol=Function(P)
 
-        #time stepping
-        outfile.write(u_n,p_n,time=n)
+        #write in vtk file
+        if output:
+            outfile.write(u_n,p_n,time=n)
         n += 1     
 
 

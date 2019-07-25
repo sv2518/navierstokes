@@ -6,7 +6,7 @@ import math
 
 
 
-def taylorgreen(dx_size,dimension,time_params,re,periodic=False):
+def taylorgreen(dx_size,dimension,time_params,re,periodic=False,output=False):
     outfile=File("./output/taylorgreen/taylorgreen.pvd")
 
     #generate mesh
@@ -68,20 +68,19 @@ def taylorgreen(dx_size,dimension,time_params,re,periodic=False):
     p_exact=-1/4*(cos(2*k*x)+cos(2*k*y))*exp(-4*pi*LX*k**2*(t+0.5)*dt*nue)
 
     #run standard pressure correction scheme to solve Navier Stokes equations
-    sol=spcs(W,mesh,nue,bc,0,t,dt,T,outfile,bc_expr,p_exact)
+    sol=spcs(W,mesh,nue,bc,0,t,dt,T,outfile,bc_expr,p_exact,output)
 
     #return errors
     t=Constant(T)
     u_exact=as_vector((ux,uy))
 
-    #L2 error
-    err_u=errornorm(sol.sub(0),Function(U).project(u_exact),"L2")
-    err_p=errornorm(sol.sub(1),Function(P).project(p_exact),"L2")
-    print("L_inf error of velo",max(abs(assemble(sol.sub(0)-Function(U).project(u_exact)).dat.data)))
-    print("L_inf error of pres",max(abs(assemble(sol.sub(1)-Function(P).project(p_exact)).dat.data)))
-    
-    err_u_inf=max(abs(assemble(sol.sub(0)-Function(U).project(u_exact)).dat.data))
-    err_p_inf=max(abs(assemble(sol.sub(1)-Function(P).project(p_exact)).dat.data))
+    #various errors
+    linf_err_u=max(abs(assemble(sol.sub(0)-Function(U).project(u_exact)).dat.data))
+    linf_err_p=max(abs(assemble(sol.sub(1)-Function(P).project(p_exact)).dat.data))
+    l2_err_u=errornorm(sol.sub(0),Function(U).project(u_exact),"L2")
+    l2_err_p=errornorm(sol.sub(1),Function(P).project(p_exact),"L2")
+    hdiv_err_u=errornorm(sol.sub(0),Function(U).project(u_exact),"hdiv")
+    h1_err_p=errornorm(sol.sub(1),Function(P).project(p_exact),"H1")
 
 
     #plot(Function(U).project(sol.sub(0)))
@@ -93,4 +92,4 @@ def taylorgreen(dx_size,dimension,time_params,re,periodic=False):
     #plot(Function(U).project(sol.sub(0)-Function(U).project(u_exact)))
     #plt.show()
     #N=LX/2 ** mesh_size
-    return sol,err_u,err_p,dx_size
+    return sol,[linf_err_u,l2_err_u,hdiv_err_u],[linf_err_p,l2_err_p,h1_err_p],dx_size
