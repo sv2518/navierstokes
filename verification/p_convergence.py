@@ -130,7 +130,7 @@ RE=1#reynolds number
 N=6#5#fe number (space discretisation)
 TMAX=1
 XLEN=2*pi
-bc_type="periodic"
+bc_type="dirichlet"
 output=False
 
 ###various re
