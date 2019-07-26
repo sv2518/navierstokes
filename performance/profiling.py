@@ -18,7 +18,7 @@ from mpi4py import MPI
 parameters["pyop2_options"]["lazy_evaluation"] = False
 
 cfl_list=[0.1]#cfl number
-order=1#space dimension
+order=2#space dimension
 RE=1#reynolds number
 N=6#5#fe number (space discretisation)
 TMAX=0.1
@@ -29,17 +29,22 @@ output=False
 # cfl number restrics size of dt
 dt=0.1/order**2*XLEN/(2*2**N)
 print(dt)
-T=TMAX/dt#(pi/2)/dt
+T=TMAX/dt
 t_params=[dt,T]
 
 #dx defined over element number & space dimensions
 dx=XLEN/2**N
 
+
+
 #initiate the logging
 PETSc.Log.begin()
 
+#solve problem for timings
 with PETSc.Log.Event("taylorgreen"):
-    _,err_u,err_p,_,comm = taylorgreen(dx,order,t_params,RE,False,output)
+    w,err_u,err_p,_,comm = taylorgreen(dx,order,t_params,RE,False,output)
+
+tas_data={}
 
 #gather all time information
 time_data={
@@ -61,8 +66,35 @@ time_data={
     "postprocessing":PETSc.Log.Event("postprocessing").getPerfInfo()["time"]
 }
 
+tas_data.update(time_data)
+
+#gather dofs
+u,p=w.split()
+u_dofs=u.dof_dset.layout_vec.getSize() 
+p_dofs=p.dof_dset.layout_vec.getSize()
+
+
+size_data={
+    "velo dofs": u_dofs,
+    "pres dofs": p_dofs
+}
+
+tas_data.update(size_data)
+
+accuracy_data={
+            "LinfPres": err_p[0],
+            "LinfVelo": err_u[0],
+            "L2Pres": err_p[1],
+            "L2Velo": err_u[1],
+            "H1Pres": err_p[2],
+            "HDivVelo": err_u[2],  
+}
+
+tas_data.update(accuracy_data)
+
+
 #write out data to .csv
-datafile= pd.DataFrame(time_data, index=[0])
+datafile= pd.DataFrame(tas_data, index=[0])
 result="results/timedata_taylorgreen_CFL%d_RE%d_TMAX%d_XLEN%d_N%d_BC%s.csv"%(cfl_list[0],RE,TMAX,XLEN,N,bc_type)
 if not os.path.exists(os.path.dirname('results/')):
         os.makedirs(os.path.dirname('results/'))
