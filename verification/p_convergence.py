@@ -77,7 +77,7 @@ def p_convergence(cfl_list,order_list,RE,TMAX,XLEN,N,bc_type,output):
 
     
         data={
-            "CFL":cfl
+            "CFL":cfl,
             "Order":order_list,
             "dt": dt_list,
             "LinfPres": linf_error_pres,
