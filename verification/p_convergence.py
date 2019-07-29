@@ -77,6 +77,7 @@ def p_convergence(cfl_list,order_list,RE,TMAX,XLEN,N,bc_type,output):
 
     
         data={
+            "CFL":cfl
             "Order":order_list,
             "dt": dt_list,
             "LinfPres": linf_error_pres,
@@ -91,27 +92,3 @@ def p_convergence(cfl_list,order_list,RE,TMAX,XLEN,N,bc_type,output):
         data_file=pd.DataFrame(data)
         result="verification/results/taylorgreen_CFL%d_RE%d_TMAX%d_XLEN%d_N%d_BC%s.csv"%(cfl,RE,TMAX,XLEN,N,bc_type)
         data_file.to_csv(result, index=False, mode="w")
-
-    #plot convergence rate
-    value=1#constant for scaling the reference orders
-    xlabel="p"
-    fig_velo = plt.figure(1)
-    fig_pres= plt.figure(2)
-    axis_velo = fig_velo.gca()
-    axis_pres= fig_pres.gca()
-    axis_velo.semilogy(order_list,value*np.power(order_list[::-1],2),'b-',label="$\propto$ ("+str(xlabel)+"$^2$)")
-    axis_pres.semilogy(order_list,value*np.power(order_list[::-1],1),'b-',label="$\propto$ ("+str(xlabel)+"$^2)$")
-    axis_velo.set_xlabel(xlabel)
-    axis_velo.set_ylabel('$Error$')
-    axis_pres.set_xlabel(xlabel)
-    axis_pres.set_ylabel('$Error$')
-    
-    for cc in range(0,len(cfl_list)):
-        label="cfl= "+str(cfl_list[cc])
-        axis_velo.semilogy(order_list,linf_error_velo_list[cc],"*-",label=label)
-        axis_pres.semilogy(order_list,linf_error_pres_list[cc],"*-",label=label)
-
-    axis_velo.legend()
-    axis_pres.legend()
-    plt.show()
-    plt.savefig("convergence.pdf", dpi=150)
