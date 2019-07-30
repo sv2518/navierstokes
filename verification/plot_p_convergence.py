@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 
 #gather all filenames
-cfl_list=[20,10,8,4,2,1,0]
+cfl_list=[50,20,10,8,4,2,1,0]
 cfl_data= ["results/taylorgreen_CFL%d_RE1_TMAX1_XLEN6_N6_BCperiodic.csv" % i
               for i in cfl_list]
 
