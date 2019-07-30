@@ -37,8 +37,8 @@ for data in order_group:
     cfl,columns = data
     print(data)
     label="cfl= "+str(cfl)
-    axis_velo.semilogy(order_list,columns.LinfVelo,"*-",label=label)
-    axis_pres.semilogy(order_list,columns.LinfPres,"*-",label=label)
+    axis_velo.semilogy(order_list,columns.LinfVelo,"x-",label=label)
+    axis_pres.semilogy(order_list,columns.LinfPres,"x-",label=label)
 
     axis_velo.legend()
     axis_pres.legend()
