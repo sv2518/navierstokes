@@ -4,9 +4,10 @@ from solver.initialvalues import *
 from solver.parameters import *
 import matplotlib.pyplot as plt
 from firedrake.petsc import PETSc
+from pyop2.profiling import timed_stage
 
 #standard pressure correction scheme
-def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None,p_init=None,output=False):
+def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,u_init=None,p_init=None,output=False):
 
     with PETSc.Log.Event("spcs configuration"):
         #functions and normal
@@ -17,7 +18,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None,p_init=None,output=False
         f =Function(U)
 
         #get solver parameters
-        [parameters_corr,parameters_pres,parameters_pres_better,parameters_velo,parameters_velo_initial,nn]=defineSolverParameters()
+        [parameters_pres_iter,parameters_corr,parameters_pres,parameters_pres_better,parameters_velo,parameters_velo_initial,nn]=defineSolverParameters()
 
         #split up boundary conditions
         [bc_norm,bc_tang,bc_expr]=bc
@@ -29,7 +30,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None,p_init=None,output=False
             u_init_sol=Function(U).project(u_init)
         else:
             #calculate inital velocity with potential flow
-            u_init_sol=initial_velocity(W,dt,mesh,bc,nue)
+            u_init_sol=initial_velocity(W,dt,mesh,bc,nue,order)
 
         
         divtest=Function(P).project(div(u_init_sol))
@@ -42,7 +43,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None,p_init=None,output=False
         #else:
             #with that initial value calculate intial pressure 
             # with Poission euqation including some non-divergence free velocity
-        p_init_sol=initial_pressure(W,dt,mesh,nue,bc,u_init_sol)
+        p_init_sol=initial_pressure(W,dt,mesh,nue,bc,u_init_sol,order)
     
     with PETSc.Log.Event("build forms"):
         print("\nBUILD FORMS")#####################################################################
@@ -52,7 +53,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None,p_init=None,output=False
         div_old=Function(P)
         v_knew_hat=Function(U)
         beta=Function(P)
-        eq_pred=build_predictor_form(W,dt,mesh,nue,bc_tang,v_k,u_n,p_n)
+        eq_pred=build_predictor_form(W,dt,mesh,nue,bc_tang,v_k,u_n,p_n,order)
         eq_upd=build_update_form(W,dt,mesh,bc_tang,div_old)
         eq_corr=build_corrector_form(W,dt,mesh,v_knew_hat,beta)
 
@@ -73,7 +74,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None,p_init=None,output=False
             w_upd = Function(W)
             nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
             update= LinearVariationalProblem(lhs(eq_upd),rhs(eq_upd),w_upd,bc_norm)#BC RIGHT???
-            solver_upd= LinearVariationalSolver(update,solver_parameters=parameters_pres,appctx=appctx)
+            solver_upd= LinearVariationalSolver(update,solver_parameters=parameters_pres_better,appctx=appctx)
             
         with PETSc.Log.Event("corrector"):
             w_corr = Function(U)
@@ -117,7 +118,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None,p_init=None,output=False
                 #loop for non-linearity
                 while(True):  
 
-                    with PETSc.Log.Event("predictor solve"):
+                    with timed_stage("predictor solve"):
                         solver_pred.solve()
 
                     #convergence criterion
@@ -137,7 +138,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None,p_init=None,output=False
                 print("Div error of predictor velocity",errornorm(div_old,Function(P)))
 
                 #solve update equation
-                with PETSc.Log.Event("update solve"):
+                with timed_stage("update solve"):
                     solver_upd.solve()
                 wsol,betasol=w_upd.split()
 
@@ -150,7 +151,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None,p_init=None,output=False
                 beta.assign(betasol)
                 
                 #then solve 
-                with PETSc.Log.Event("corrector solve"):
+                with timed_stage("corrector solve"):
                     solver_corr.solve()
                 usol=Function(U).assign(w_corr)
 

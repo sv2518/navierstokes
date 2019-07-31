@@ -5,8 +5,8 @@ import pandas as pd
 import numpy as np
 
 #gather all filenames
-cfl_list=[50,20,10,8,4,2,1,0]
-cfl_data= ["results/taylorgreen_CFL%d_RE1_TMAX1_XLEN6_N6_BCperiodic.csv" % i
+cfl_list=[50,20,15,10]#,10,8,4,2,1]
+cfl_data= ["results/taylorgreen_newstabs2_CFL%d_RE1_TMAX1_XLEN6_N6_BCdirichlet.csv" % i
               for i in cfl_list]
 
 #readin all data
@@ -20,14 +20,14 @@ order_group =readin_data.groupby(["CFL"], as_index=False)
 order_list = [e[1] for e in readin_data["Order"].drop_duplicates().items()]
 
 #plot convergence rate
-value=1#constant for scaling the reference orders
+value=0.01#constant for scaling the reference orders
 xlabel="p"
 fig_velo = plt.figure(1)
 fig_pres= plt.figure(2)
 axis_velo = fig_velo.gca()
 axis_pres= fig_pres.gca()
-axis_velo.semilogy(order_list,value*np.power(order_list[::-1],2),'b-',label="$\propto$ ("+str(xlabel)+"$^2$)")
-axis_pres.semilogy(order_list,value*np.power(order_list[::-1],1),'b-',label="$\propto$ ("+str(xlabel)+"$^2)$")
+axis_velo.semilogy(order_list,value*np.power(order_list[::-1],1),'b-',label="$\propto$ ("+str(xlabel)+")")
+axis_pres.semilogy(order_list,value*np.power(order_list[::-1],1),'b-',label="$\propto$ ("+str(xlabel)+")")
 axis_velo.set_xlabel(xlabel)
 axis_velo.set_ylabel('$Error$')
 axis_pres.set_xlabel(xlabel)
@@ -43,6 +43,6 @@ for data in order_group:
     axis_velo.legend()
     axis_pres.legend()
 
-fig_velo.savefig("veloconv.pdf", dpi=150)
-fig_pres.savefig("presconv.pdf", dpi=150)
+fig_velo.savefig("veloconv_newstabs2.pdf", dpi=150)
+fig_pres.savefig("presconv_newstabs2.pdf", dpi=150)
 

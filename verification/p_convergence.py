@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-def p_convergence(cfl_list,order_list,RE,TMAX,XLEN,N,bc_type,output):
+def p_convergence(cfl_list,order_list,RE,TMAX,XLEN,N,bc_type,output,name):
     #various erros for velocity and pressure
     linf_error_pres_list=[]
     l2_error_pres_list=[]
@@ -90,5 +90,5 @@ def p_convergence(cfl_list,order_list,RE,TMAX,XLEN,N,bc_type,output):
 
         #write convergence rates to csv file
         data_file=pd.DataFrame(data)
-        result="verification/results/taylorgreen_CFL%d_RE%d_TMAX%d_XLEN%d_N%d_BC%s.csv"%(cfl,RE,TMAX,XLEN,N,bc_type)
+        result="verification/results/taylorgreen_%s_CFL%d_RE%d_TMAX%d_XLEN%d_N%d_BC%s.csv"%(name,cfl,RE,TMAX,XLEN,N,bc_type)
         data_file.to_csv(result, index=False, mode="w")

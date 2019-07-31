@@ -4,9 +4,9 @@ from solver.parameters import *
 
 
 #INITAL VALUES: solve the following from for initial values
-def initial_velocity(W,dt,mesh,bc,nue):
+def initial_velocity(W,dt,mesh,bc,nue,order):
     print("....Solving Stokes problem for initial velocity ....")
-    parameters_velo_initial=defineSolverParameters()[4]
+    parameters_velo_initial=defineSolverParameters()[5]
 
     #extract bc and parameters
     [bc_norm,bc_tang,bc_expr]=bc
@@ -17,7 +17,7 @@ def initial_velocity(W,dt,mesh,bc,nue):
     n=FacetNormal(W.mesh())
 
     #Form for Stokes problem
-    lapl_dg=diffusion_operator(nue,u,v,n,bc_tang,mesh,10.)    
+    lapl_dg=diffusion_operator(nue,u,v,n,bc_tang,mesh,10.,order)    
     incomp_dg=ibp_product(div(u),q)
     pres_dg=ibp_product(div(v),p)
     eq_init=incomp_dg-pres_dg+lapl_dg
@@ -31,13 +31,13 @@ def initial_velocity(W,dt,mesh,bc,nue):
     
     return u_init_sol
 
-def initial_pressure(W,dt,mesh,nue,bc,u_init):
+def initial_pressure(W,dt,mesh,nue,bc,u_init,order):
     print("....Solving problem for initial pressure ....")
 
     #extract bcs, parameters and subspace
     [bc_norm,bc_tang,bc_expr]=bc
-    parameters_pres=defineSolverParameters()[1]
-    parameters_velo=defineSolverParameters()[3]
+    parameters_pres=defineSolverParameters()[2]
+    parameters_velo=defineSolverParameters()[4]
     U=W.sub(0)
     P=W.sub(1)
 
@@ -52,7 +52,7 @@ def initial_pressure(W,dt,mesh,nue,bc,u_init):
     u_linear=Function(U).assign(u_init)
     
     #projection form
-    lapl_dg=diffusion_operator(nue,u_linear,v,n,bc_tang,mesh,10.)
+    lapl_dg=diffusion_operator(nue,u_linear,v,n,bc_tang,mesh,10.,order)
     adv_dg=advection_operator(u_linear,u_linear,v,n,bc_tang)
     eq_init=dot(v,F)*dx-adv_dg+lapl_dg
 

@@ -69,7 +69,7 @@ def taylorgreen(dx_size,dimension,time_params,re,periodic=False,output=False):
 
     with PETSc.Log.Event("spcs"):
         #run standard pressure correction scheme to solve Navier Stokes equations
-        sol=spcs(W,mesh,nue,bc,0,t,dt,T,outfile,bc_expr,p_exact,output)
+        sol=spcs(W,mesh,nue,bc,0,t,dt,T,outfile,dimension,bc_expr,p_exact,output)
 
     with PETSc.Log.Event("postprocessing"):
         #return errors

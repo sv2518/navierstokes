@@ -1,8 +1,9 @@
 from firedrake import *
 def defineSolverParameters():
-    parameters_velo={'pc_type': 'gamg',
-                    'ksp_type': 'gmres',
-                    'ksp_rtol': 1.0e-7
+    parameters_velo_iter={
+            'pc_type': 'gamg',
+            'ksp_type': 'gmres',
+            'ksp_rtol': 1.0e-7
     }
 
 
@@ -12,7 +13,17 @@ def defineSolverParameters():
                         'pc_python_type': 'firedrake.HybridizationPC',
                         'hybridization': {'ksp_type': 'preonly',
                                         'pc_type': 'lu'}
-                    }
+    }
+
+    parameters_pres_iter={
+                        'mat_type': 'matfree',
+                        'ksp_type': 'preonly',
+                        'pc_type': 'gamg',
+                        'pc_python_type': 'firedrake.HybridizationPC',
+                        'hybridization': {'ksp_type': 'cg',
+                                            'pc_type': 'none',
+                                            'ksp_rtol': 1e-8}
+    }
 
     parameters_pres_better={
                         'mat_type': 'matfree',
@@ -45,7 +56,8 @@ def defineSolverParameters():
     }
 
 
-    parameters_corr={"ksp_type": "cg",
+    parameters_corr_iter={
+            "ksp_type": "cg",
             "ksp_rtol": 1e-8,
             'pc_type': 'ilu'
     }
@@ -72,4 +84,4 @@ def defineSolverParameters():
      #   "mat_type":"aij"
     }
 
-    return [parameters_corr,parameters_pres,parameters_pres_better,parameters_velo,parameters_velo_initial,parameters_kovasznay]
+    return [parameters_pres_iter,parameters_corr_iter,parameters_pres,parameters_pres_better,parameters_velo_iter,parameters_velo_initial,parameters_kovasznay]
