@@ -56,17 +56,6 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None,p_init=None,output=False
         eq_upd=build_update_form(W,dt,mesh,bc_tang,div_old)
         eq_corr=build_corrector_form(W,dt,mesh,v_knew_hat,beta)
 
-    #initialise time stepping
-    u_n.assign(u_init_sol)
-    p_n.assign(p_init_sol)
-
-    #save & divtest
-    if output:
-        outfile.write(u_n,p_n,time=0)
-
-    divtest=Function(P).project(div(u_n))
-    print("Div error of initial velocity",errornorm(divtest,Function(P)))
-
     with PETSc.Log.Event("build problems and solvers"):
         print("\nBUILD PROBLEM AND SOLVERS")########################################################
         
@@ -92,6 +81,17 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None,p_init=None,output=False
             solver_corr = LinearVariationalSolver(corrector,solver_parameters=parameters_corr)
 
     with PETSc.Log.Event("time progressing"):
+        #initialise time stepping
+        u_n.assign(u_init_sol)
+        p_n.assign(p_init_sol)
+
+        #save & divtest
+        if output:
+            outfile.write(u_n,p_n,time=0)
+
+        divtest=Function(P).project(div(u_n))
+        print("Div error of initial velocity",errornorm(divtest,Function(P)))
+
         print("\nTIME PROGRESSING")################################################################
         #outerloop for time progress
         n = 1
@@ -168,9 +168,9 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,u_init=None,p_init=None,output=False
             n += 1     
 
 
-    #final time step solution
-    sol=Function(W)
-    sol.sub(0).assign(u_n)
-    sol.sub(1).assign(p_n)
+        #final time step solution
+        sol=Function(W)
+        sol.sub(0).assign(u_n)
+        sol.sub(1).assign(p_n)
 
     return sol

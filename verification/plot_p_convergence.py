@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 
 #gather all filenames
-cfl_list=[20,10,8,4,2,1,0]
+cfl_list=[50,20,10,8,4,2,1,0]
 cfl_data= ["results/taylorgreen_CFL%d_RE1_TMAX1_XLEN6_N6_BCperiodic.csv" % i
               for i in cfl_list]
 
@@ -37,8 +37,8 @@ for data in order_group:
     cfl,columns = data
     print(data)
     label="cfl= "+str(cfl)
-    axis_velo.semilogy(order_list,columns.LinfVelo,"*-",label=label)
-    axis_pres.semilogy(order_list,columns.LinfPres,"*-",label=label)
+    axis_velo.semilogy(order_list,columns.LinfVelo,"x-",label=label)
+    axis_pres.semilogy(order_list,columns.LinfPres,"x-",label=label)
 
     axis_velo.legend()
     axis_pres.legend()
