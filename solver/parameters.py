@@ -1,13 +1,18 @@
 from firedrake import *
 def defineSolverParameters():
+
+    parameters_velo_direct={
+            'ksp_type': 'lu',
+            'ksp_rtol': 1.0e-7
+    }
     parameters_velo_iter={
             'pc_type': 'gamg',
             'ksp_type': 'gmres',
-            'ksp_rtol': 1.0e-7
+            'ksp_rtol': 1.0e-8
     }
 
 
-    parameters_pres = { 'mat_type': 'matfree',
+    parameters_pres_direct = { 'mat_type': 'matfree',
                         'ksp_type': 'preonly',
                         'pc_type': 'python',
                         'pc_python_type': 'firedrake.HybridizationPC',
@@ -55,6 +60,11 @@ def defineSolverParameters():
     "fieldsplit_1_Mp_pc_type": "ilu"
     }
 
+    parameters_corr_direct={
+            "ksp_type": "cg",
+            "ksp_rtol": 1e-8,
+            'pc_type': 'ilu'
+    }
 
     parameters_corr_iter={
             "ksp_type": "cg",
@@ -84,4 +94,8 @@ def defineSolverParameters():
      #   "mat_type":"aij"
     }
 
-    return [parameters_pres_iter,parameters_corr_iter,parameters_pres,parameters_pres_better,parameters_velo_iter,parameters_velo_initial,parameters_kovasznay]
+    spsc_direct_params={parameters_velo_direct,parameters_pres_direct,parameters_corr_direct} 
+    spsc_iter_params={parameters_velo_iter,parameters_pres_iter,parameters_corr_iter} 
+    spsc_initial_params={params_velo_inital}
+    return {spsc_direct_params,spsc_iter_params,spsc_initial_params}
+    #return [parameters_pres_iter,parameters_corr_iter,parameters_pres,parameters_pres_better,parameters_velo_iter,parameters_velo_initial,parameters_kovasznay]

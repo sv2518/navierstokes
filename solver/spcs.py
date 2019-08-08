@@ -18,7 +18,11 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,u_init=None,p_init=None,output
         f =Function(U)
 
         #get solver parameters
-        [parameters_pres_iter,parameters_corr,parameters_pres,parameters_pres_better,parameters_velo,parameters_velo_initial,nn]=defineSolverParameters()
+        #[parameters_pres_iter,parameters_corr,parameters_pres,parameters_pres_better,parameters_velo,parameters_velo_initial,nn]=defineSolverParameters()
+        parameters_iter=defineSolverParameters()[1]
+        parameters_velo=parameters_iter[0]
+        parameters_pres=parameters_iter[1]
+        parameters_corr=parameters_iter[2]
 
         #split up boundary conditions
         [bc_norm,bc_tang,bc_expr]=bc
@@ -74,7 +78,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,u_init=None,p_init=None,output
             w_upd = Function(W)
             nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
             update= LinearVariationalProblem(lhs(eq_upd),rhs(eq_upd),w_upd,bc_norm)#BC RIGHT???
-            solver_upd= LinearVariationalSolver(update,solver_parameters=parameters_pres_better,appctx=appctx)
+            solver_upd= LinearVariationalSolver(update,solver_parameters=parameters_pres,appctx=appctx)
             
         with PETSc.Log.Event("corrector"):
             w_corr = Function(U)

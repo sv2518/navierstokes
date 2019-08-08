@@ -6,7 +6,7 @@ from solver.parameters import *
 #INITAL VALUES: solve the following from for initial values
 def initial_velocity(W,dt,mesh,bc,nue,order):
     print("....Solving Stokes problem for initial velocity ....")
-    parameters_velo_initial=defineSolverParameters()[5]
+    parameters_velo_initial=defineSolverParameters()[2][0]#initial,velo
 
     #extract bc and parameters
     [bc_norm,bc_tang,bc_expr]=bc
@@ -36,8 +36,8 @@ def initial_pressure(W,dt,mesh,nue,bc,u_init,order):
 
     #extract bcs, parameters and subspace
     [bc_norm,bc_tang,bc_expr]=bc
-    parameters_pres=defineSolverParameters()[2]
-    parameters_velo=defineSolverParameters()[4]
+    parameters_pres=defineSolverParameters()[0][1]#direct,pres
+    parameters_velo=defineSolverParameters()[1][0]#iterative,velo
     U=W.sub(0)
     P=W.sub(1)
 
