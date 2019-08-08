@@ -24,6 +24,8 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,u_init=None,p_init=None,output
         parameters_pres=parameters_iter[1]
         parameters_corr=parameters_iter[2]
 
+        print(parameters_iter)
+
         #split up boundary conditions
         [bc_norm,bc_tang,bc_expr]=bc
 

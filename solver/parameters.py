@@ -27,7 +27,8 @@ def defineSolverParameters():
                         'pc_python_type': 'firedrake.HybridizationPC',
                         'hybridization': {'ksp_type': 'cg',
                                             'pc_type': 'none',
-                                            'ksp_rtol': 1e-8}
+                                            'ksp_rtol': 1e-8
+                        }
     }
 
     parameters_pres_better={
@@ -95,7 +96,7 @@ def defineSolverParameters():
     }
 
     spsc_direct_params=[parameters_velo_direct,parameters_pres_direct,parameters_corr_direct] 
-    spsc_iter_params=[parameters_velo_iter,parameters_pres_iter,parameters_corr_iter] 
+    spsc_iter_params=[parameters_velo_iter,parameters_pres_better,parameters_corr_iter] 
     spsc_initial_params=[parameters_velo_initial]
     return [spsc_direct_params,spsc_iter_params,spsc_initial_params]
     #return [parameters_pres_iter,parameters_corr_iter,parameters_pres,parameters_pres_better,parameters_velo_iter,parameters_velo_initial,parameters_kovasznay]
