@@ -5,8 +5,9 @@ import pandas as pd
 import numpy as np
 
 #gather all filenames
-cfl_list=[50,20,15,10]#,10,8,4,2,1]
-cfl_data= ["results/taylorgreen_newstabs2_CFL%d_RE1_TMAX1_XLEN6_N6_BCdirichlet.csv" % i
+cfl_list=[20,15,10,8,4,2]#,]1]#,0]
+#cfl_list=[50,20,15,10]#,10,8,4,2,1]
+cfl_data= ["results/taylorgreen_newstabs3_CFL%d_RE1_TMAX1_XLEN6_N6_BCdirichlet.csv" % i
               for i in cfl_list]
 
 #readin all data
@@ -43,6 +44,6 @@ for data in order_group:
     axis_velo.legend()
     axis_pres.legend()
 
-fig_velo.savefig("veloconv_newstabs2.pdf", dpi=150)
-fig_pres.savefig("presconv_newstabs2.pdf", dpi=150)
+fig_velo.savefig("veloconv_newstabs3.pdf", dpi=150)
+fig_pres.savefig("presconv_newstabs3.pdf", dpi=150)
 

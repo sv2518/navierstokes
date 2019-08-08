@@ -3,27 +3,121 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import os
+
+
+def solveassembly_internal(columns,axis10,axis11,order):
+    #gather internal data
+    timeassemblypred_int=columns["jac_eval_time_pred"]
+    timesolvepred_int=columns["snes_time_pred"]
+    timeassemblyupd_int=columns["jac_eval_time_upd"]
+    timesolveupd_int=columns["snes_time_upd"]
+    timeassemblycorr_int=columns["jac_eval_time_corr"]
+    timesolvecorr_int=columns["snes_time_corr"]
+
+    #collect times
+    timeassembly_int=timeassemblypred_int+timeassemblyupd_int+timeassemblycorr_int
+    timesolve_int=timesolvepred_int+timesolveupd_int+timesolvecorr_int
+    timepred_int=timeassemblypred_int+timesolvepred_int
+    timeupd_int=timeassemblyupd_int+timesolveupd_int
+    timecorr_int=timeassemblycorr_int+timesolvecorr_int
+
+    #relative plot for parts
+    fig9= plt.figure(9)
+    axis9 = fig9.gca()
+    a12=axis9.bar(1, timeassemblypred_int/timepred_int, width,
+                 linewidth=1,color="red")
+    b=timeassemblypred_int/timepred_int
+    a13=axis9.bar(1, timesolvepred_int/timepred_int, width,
+                 linewidth=1,color="blue",bottom=b)
+
+    a14=axis9.bar(2, timeassemblyupd_int/timeupd_int, width,
+                 linewidth=1,color="red")
+    b=timeassemblyupd_int/timeupd_int
+    a15=axis9.bar(2, timesolveupd_int/timeupd_int, width,
+                 linewidth=1,color="blue",bottom=b)
+
+    a16=axis9.bar(3, timeassemblycorr_int/timecorr_int, width,
+                 linewidth=1,color="red")
+    b=timeassemblycorr_int/timecorr_int
+    a17=axis9.bar(3, timesolvecorr_int/timecorr_int, width,
+                 linewidth=1,color="blue",bottom=b)
+    
+    axis9.legend((a12[0],a13[0]),
+    ("assembly (snes jacobian eval)", "solve (KSP solve)"))
+    axis9.set_xlabel('Parts')
+    axis9.set_ylabel('Normalised Time')
+    fig9.savefig("solveassembly_internal/tasparts_relative_internal_order%d.pdf"%(order_list[i-1]), dpi=150)
+
+    #absolute plot for parts
+    fig9= plt.figure(9)
+    axis9 = fig9.gca()
+    a12=axis9.bar(1, timeassemblypred_int, width,
+                 linewidth=1,color="red")
+    b=timeassemblypred_int
+    a13=axis9.bar(1, timesolvepred_int, width,
+                 linewidth=1,color="blue",bottom=b)
+
+    a14=axis9.bar(2, timeassemblyupd_int, width,
+                 linewidth=1,color="red")
+    b=timeassemblyupd_int
+    a15=axis9.bar(2, timesolveupd_int, width,
+                 linewidth=1,color="blue",bottom=b)
+
+    a16=axis9.bar(3, timeassemblycorr_int, width,
+                 linewidth=1,color="red")
+    b=timeassemblycorr_int
+    a17=axis9.bar(3, timesolvecorr_int, width,
+                 linewidth=1,color="blue",bottom=b)
+    
+    axis9.legend((a12[0],a13[0]),
+    ("assembly (snes jacobian eval)", "solve (KSP solve)"))
+    axis9.set_xlabel('Parts')
+    axis9.set_ylabel('Time [s]')
+    fig9.savefig("solveassembly_internal/tasparts_absolute_internal_order%d.pdf"%(order_list[i-1]), dpi=150)
+
+    ##########################################################
+
+    #plot for various orders for all absolute
+    a18=axis10.bar(order, timeassembly_int, width,
+                 linewidth=1,color="red")
+    b=timeassembly_int
+    a19=axis10.bar(order, timesolve_int, width,
+                 linewidth=1,color="blue",bottom=b)
+
+    #plot for various orders for all relative
+    time=timeassembly_int+timesolve_int
+    a20=axis11.bar(order, timeassembly_int/time, width,
+                 linewidth=1,color="red")
+    b=timeassembly_int/time
+    a21=axis11.bar(order, timesolve_int/time, width,
+                 linewidth=1,color="blue",bottom=b)
+
+    return a18,a19,a20,a21
+
 
 
 ####################################################################
 #############GENERAL PERFORMANCE DISTRIBUTION PLOTS################
 ####################################################################
-order_list=[1,2,3,4]
+order_list=[1,2,3]#,4]
 
 #gather all filenames
-order_data= ["results/timedata_taylorgreen_ORDER%dCFL20_RE1_TMAX1_XLEN6_N6_BCdirichlet.csv" % i
+order_data= ["results/timedata_taylorgreen_ORDER%d_CFL10_RE1_TMAX1_XLEN6_BCdirichlet.csv" % i
               for i in order_list]
 
 #readin all data
-readin_data = pd.concat(pd.read_csv(data) for data in order_data)
+readin_data = pd.concat(pd.read_csv(data,nrows=1) for data in order_data)
+#readin_data=readin_data.iloc[1,:]#only for one N
 
 #order data by order number
-order_group =readin_data.groupby(["sum dofs"], as_index=False)
+order_group =readin_data.groupby(["order"], as_index=False)
 
 #gather all dofs
 dof_list = [e[1] for e in readin_data["sum dofs"].drop_duplicates().items()]#use sum dofs instead
 
-
+if not os.path.exists(os.path.dirname('distribution_external/')):
+            os.makedirs(os.path.dirname('distribution_external/'))
 #plot overall percentages
 fig1= plt.figure(1)
 axis1 = fig1.gca()
@@ -34,10 +128,17 @@ fig2= plt.figure(2)
 axis2 = fig2.gca()
 axis2.set_ylabel('Normalised Time')
 
-#plot percentages split by predictor, update, corrector solve
-fig3= plt.figure(3)
-axis3 = fig3.gca()
-axis3.set_ylabel('Normalised Time')
+#plot internal absolute and relative solve/assembly for all orders
+if not os.path.exists(os.path.dirname('solveassembly_internal/')):
+            os.makedirs(os.path.dirname('solveassembly_internal/'))
+
+fig10= plt.figure(10)
+axis10 = fig10.gca()
+axis10.set_ylabel('Absolute Time')
+
+fig11= plt.figure(11)
+axis11 = fig11.gca()
+axis11.set_ylabel('Normalised Time')
 
 #run through all data
 width=0.35
@@ -86,44 +187,40 @@ for data in order_group:
     b+=timecorr/timeassembly
 
 
-    #gather times for solve splits
-    timepredsolve=columns["predictor solve"]
-    timeupdsolve=columns["update solve"]
-    timecorrsolve=columns["corrector solve"]
-
-    timesolve=timepredsolve+timeupdsolve+timecorrsolve
-    a9 = axis3.bar(i, timepredsolve/timesolve, width,
-                 linewidth=1,color="red")
-    b=timepredsolve/timesolve
-    a10 = axis3.bar(i, timeupdsolve/timesolve, width,bottom=b,
-                linewidth=1,color="blue")
-    b+=timeupdsolve/timesolve
-    a11 = axis3.bar(i, timecorrsolve/timesolve, width,bottom=b,
-                linewidth=1,color="green")
-
-
+    #internal assembly/solve
+    a18,a19,a20,a21=solveassembly_internal(columns,axis10,axis11,i)
 
 
     labels.append("Order=%d \n (DOF=%d)" % (order_list[i-1],sum_dof))
     i+=1
 
+####internal assembly/solve
+axis10.legend((a18[0],a19[0]),
+("assembly","solve"))
+axis10.set_xlabel("Order")
+fig10.savefig("solveassembly_internal/tasall_absolute_internal.pdf", dpi=150)
 
+axis11.legend((a20[0],a21[0]),
+("assembly","solve"))
+axis11.set_xlabel("Order")
+fig11.savefig("solveassembly_internal/tasall_relative_internal.pdf", dpi=150)
+#####
 
-
+####external distributions
 #set legends and savefigs
 axis1.legend((a1[0],a2[0],a3[0],a4[0],a5[0]),
-("config","assembly forms","assembly problems and solver","time stepping","postprocessing"))
-fig1.savefig("tasAll.pdf", dpi=150)
+("config","forms","problems and solver","time stepping","postprocessing"))
+fig1.savefig("distribution_external/general_tasAll_external.pdf", dpi=150)
 
 axis2.legend((a6[0],a7[0],a8[0]),
 ("predictor assembly","update assembly","corrector assembly"))
-fig2.savefig("tasAssembly.pdf", dpi=150)
+fig2.savefig("distribution_external/general_tasAssembly_external.pdf", dpi=150)
+####
 
-axis3.legend((a9[0],a10[0],a11[0]),
-("predictor solve","update solve","corrector solve"))
-fig3.savefig("tasSolve.pdf", dpi=150)
+######################## here actually TAS stuff starts
 
-########################
+if not os.path.exists(os.path.dirname('tas/')):
+            os.makedirs(os.path.dirname('tas/'))
 
 #gather all times
 timeoverall_list=[e[1] for e in readin_data["taylorgreen"].items()]
@@ -147,7 +244,7 @@ axis4.set_xlabel('DoS')
 
 axis4.loglog(dos,doa,"x-",label="DG - GAMG")
 axis4.legend()
-fig4.savefig("tasMesh.pdf", dpi=150)
+fig4.savefig("tas/tasMesh.pdf", dpi=150)
 
 ####################################################################
 #############    STATIC SCALING  ###################################
@@ -164,7 +261,7 @@ axis5.set_xlabel('Time(s)')
 dofpersecond=[x/y for x, y in zip(dof_list,timeoverall_list)]
 axis5.loglog(timeoverall_list,dofpersecond,"x-",label="DG - GAMG")
 axis5.legend()
-fig5.savefig("tasStatic.pdf", dpi=150)
+fig5.savefig("tas/tasStatic.pdf", dpi=150)
 
 
 ####################################################################
@@ -180,7 +277,7 @@ axis6.set_xlabel('Time(s)')
 
 axis6.loglog(timeoverall_list,doe,"x-",label="DG - GAMG")
 axis6.legend()
-fig6.savefig("tasEfficacy.pdf", dpi=150)
+fig6.savefig("tas/tasEfficacy.pdf", dpi=150)
 
 
 ####################################################################
@@ -197,4 +294,4 @@ axis8.set_xlabel('Time(s)')
 
 axis8.loglog(timeoverall_list,truedofpersecond,"x-",label="DG - GAMG")
 axis8.legend()
-fig8.savefig("tasTrueStatic.pdf", dpi=150)
+fig8.savefig("tas/tasTrueStatic.pdf", dpi=150)
