@@ -20,16 +20,16 @@ def defineSolverParameters():
                                         'pc_type': 'lu'}
     }
 
-    parameters_pres_iter={
-                        'mat_type': 'matfree',
-                        'ksp_type': 'preonly',
-                        'pc_type': 'gamg',
-                        'pc_python_type': 'firedrake.HybridizationPC',
-                        'hybridization': {'ksp_type': 'cg',
-                                            'pc_type': 'none',
-                                            'ksp_rtol': 1e-8
-                        }
-    }
+    #parameters_pres_iter={
+    #                    'mat_type': 'matfree',
+    #                    'ksp_type': 'preonly',
+     #                   'pc_type': 'gamg',
+    #                    'pc_python_type': 'firedrake.HybridizationPC',
+    #                    'hybridization': {'ksp_type': 'cg',
+    #                                        'pc_type': 'none',
+    #                                        'ksp_rtol': 1e-8
+    #                    }
+    #}
 
     parameters_pres_better={
                         'mat_type': 'matfree',
