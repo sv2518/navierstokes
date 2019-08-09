@@ -9,6 +9,7 @@ N=6#5#fe number (space discretisation)
 TMAX=1
 XLEN=2*pi
 bc_type="dirichlet"
-output=False
+output=True
 
 p_convergence(cfl_list,order_list,RE,TMAX,XLEN,N,bc_type,output,"newstabs")
+

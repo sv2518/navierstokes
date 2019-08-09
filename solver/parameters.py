@@ -38,8 +38,7 @@ def defineSolverParameters():
                         'pc_python_type': 'firedrake.HybridizationPC',
                         'hybridization': {'ksp_type': 'cg',
                                             'pc_type': 'none',
-                                            'ksp_rtol': 1e-8,
-                                            'mat_type': 'matfree'}
+                                            'ksp_rtol': 1e-8}
     }
 
     parameters_velo_initial={

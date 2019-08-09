@@ -45,9 +45,9 @@ def p_convergence(cfl_list,order_list,RE,TMAX,XLEN,N,bc_type,output,name):
         
             #solve
             if bc_type=="periodic":
-                _,err_u,err_p,_,_ = taylorgreen(dx,D,t_params,RE,True,output)
+                _,err_u,err_p,_,_ = taylorgreen(dx,D,t_params,RE,XLEN,True,output)
             elif bc_type=="dirichlet":
-                _,err_u,err_p,_,_ = taylorgreen(dx,D,t_params,RE,False,output)
+                _,err_u,err_p,_,_ = taylorgreen(dx,D,t_params,RE,XLEN,False,output)
 
             #update list
             linf_error_velo.append(err_u[0])
