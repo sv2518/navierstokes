@@ -6,7 +6,7 @@ order_list=range(1,5)#space dimension
 RE=1#reynolds number
 N=6#5#fe number (space discretisation)
 TMAX=pi
-XLEN=2*pi
+XLEN=1
 bc_type="periodic"
 output=False
 
