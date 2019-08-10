@@ -8,7 +8,7 @@ N=6#5#fe number (space discretisation)
 TMAX=pi
 XLEN=2*pi
 bc_type="dirichlet"
-output=True
+output=False
 
 #IP_stabilityparam_type="order_unscaled"
 #p_convergence(cfl_list,order_list,RE,TMAX,XLEN,N,bc_type,output,"newstabs")
