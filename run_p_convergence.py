@@ -7,7 +7,7 @@ RE=1#reynolds number
 N=6#5#fe number (space discretisation)
 TMAX=pi
 XLEN=2*pi
-bc_type="dirichlet"
+bc_type="periodic"
 output=False
 
 #IP_stabilityparam_type="order_unscaled"
