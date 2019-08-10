@@ -5,13 +5,6 @@ def defineSolverParameters():
             'ksp_type': 'lu',
             'ksp_rtol': 1.0e-7
     }
-    parameters_velo_iter={
-            'pc_type': 'gamg',
-            'ksp_type': 'gmres',
-            'ksp_rtol': 1.0e-8
-    }
-
-
     parameters_pres_direct = { 'mat_type': 'matfree',
                         'ksp_type': 'preonly',
                         'pc_type': 'python',
@@ -19,17 +12,29 @@ def defineSolverParameters():
                         'hybridization': {'ksp_type': 'preonly',
                                         'pc_type': 'lu'}
     }
-
-    parameters_pres_iter={
-                        'mat_type': 'matfree',
-                        'ksp_type': 'preonly',
-                        'pc_type': 'gamg',
-                        'pc_python_type': 'firedrake.HybridizationPC',
-                        'hybridization': {'ksp_type': 'cg',
-                                            'pc_type': 'none',
-                                            'ksp_rtol': 1e-8
-                        }
+    parameters_corr_direct={
+            "ksp_type": "cg",
+            "ksp_rtol": 1e-8,
+            'pc_type': 'ilu'
     }
+##########################
+
+    parameters_velo_iter={
+            'pc_type': 'gamg',
+            'ksp_type': 'gmres',
+            'ksp_rtol': 1.0e-8
+    }    
+
+    #parameters_pres_iter={
+    #                    'mat_type': 'matfree',
+    #                    'ksp_type': 'preonly',
+     #                   'pc_type': 'gamg',
+    #                    'pc_python_type': 'firedrake.HybridizationPC',
+    #                    'hybridization': {'ksp_type': 'cg',
+    #                                        'pc_type': 'none',
+    #                                        'ksp_rtol': 1e-8
+    #                    }
+    #}
 
     parameters_pres_better={
                         'mat_type': 'matfree',
@@ -38,9 +43,16 @@ def defineSolverParameters():
                         'pc_python_type': 'firedrake.HybridizationPC',
                         'hybridization': {'ksp_type': 'cg',
                                             'pc_type': 'none',
-                                            'ksp_rtol': 1e-8,
-                                            'mat_type': 'matfree'}
+                                            'ksp_rtol': 1e-8}
     }
+
+
+    parameters_corr_iter={
+            "ksp_type": "cg",
+            "ksp_rtol": 1e-8,
+            'pc_type': 'ilu'
+    }
+########################
 
     parameters_velo_initial={
     "mat_type": "matfree",
@@ -61,17 +73,7 @@ def defineSolverParameters():
     "fieldsplit_1_Mp_pc_type": "ilu"
     }
 
-    parameters_corr_direct={
-            "ksp_type": "cg",
-            "ksp_rtol": 1e-8,
-            'pc_type': 'ilu'
-    }
-
-    parameters_corr_iter={
-            "ksp_type": "cg",
-            "ksp_rtol": 1e-8,
-            'pc_type': 'ilu'
-    }
+    
 
     parameters_kovasznay={  
             "ksp_type": "fgmres",

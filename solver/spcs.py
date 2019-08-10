@@ -43,13 +43,13 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,u_init=None,p_init=None,output
         print("Div error of initial velocity",errornorm(divtest,Function(P)))
 
         #check in analytical solutions is given
-        #if p_init:
-            #x,y=SpatialCoordinate(W.mesh())
-            #p_init_sol=Function(P).project(p_init)
-        #else:
+        if p_init:
+            x,y=SpatialCoordinate(W.mesh())
+            p_init_sol=Function(P).project(p_init)
+        else:
             #with that initial value calculate intial pressure 
-            # with Poission euqation including some non-divergence free velocity
-        p_init_sol=initial_pressure(W,dt,mesh,nue,bc,u_init_sol,order)
+            #with Poission euqation including some non-divergence free velocity
+            p_init_sol=initial_pressure(W,dt,mesh,nue,bc,u_init_sol,order)
     
     with PETSc.Log.Event("build forms"):
         print("\nBUILD FORMS")#####################################################################

@@ -18,15 +18,13 @@ from mpi4py import MPI
 parameters["pyop2_options"]["lazy_evaluation"] = False
 
 cfl=10#cfl number
-order_list=[1,2,3]#,4]#space dimension
+order_list=[1,2,3,4]#space dimension
 RE=1#reynolds number
 N_list=[5,6]#,7,8,9]#5#fe number (space discretisation)
 TMAX=1
 XLEN=2*pi
 bc_type="dirichlet"
 output=False
-
-
 
 
 for order in order_list:
