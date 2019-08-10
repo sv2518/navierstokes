@@ -1,8 +1,8 @@
 from verification.p_convergence import p_convergence
 from firedrake import *
-
-
-cfl_list=[20,15,10,8,4,2,1,0.1]#cfl number
+cfl_list=[20,10,15,8,4,2,1,0.1]
+#cfl_list=[20]
+#cfl_list=[20,15,10,8,4,2,1,0.1]#cfl number
 order_list=range(1,5)#space dimension
 RE=1#reynolds number
 N=6#5#fe number (space discretisation)
