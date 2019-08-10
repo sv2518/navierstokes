@@ -7,7 +7,7 @@ from firedrake.petsc import PETSc
 from pyop2.profiling import timed_stage
 
 #standard pressure correction scheme
-def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,u_init=None,p_init=None,output=False):
+def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,IP_stabilityparam_type=None,u_init=None,p_init=None,output=False):
 
     with PETSc.Log.Event("spcs configuration"):
         #functions and normal
@@ -36,7 +36,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,u_init=None,p_init=None,output
             u_init_sol=Function(U).project(u_init)
         else:
             #calculate inital velocity with potential flow
-            u_init_sol=initial_velocity(W,dt,mesh,bc,nue,order)
+            u_init_sol=initial_velocity(W,dt,mesh,bc,nue,order,IP_stabilityparam_type)
 
         
         divtest=Function(P).project(div(u_init_sol))
@@ -49,7 +49,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,u_init=None,p_init=None,output
         else:
             #with that initial value calculate intial pressure 
             #with Poission euqation including some non-divergence free velocity
-            p_init_sol=initial_pressure(W,dt,mesh,nue,bc,u_init_sol,order)
+            p_init_sol=initial_pressure(W,dt,mesh,nue,bc,u_init_sol,order,IP_stabilityparam_type)
     
     with PETSc.Log.Event("build forms"):
         print("\nBUILD FORMS")#####################################################################
@@ -59,7 +59,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,u_init=None,p_init=None,output
         div_old=Function(P)
         v_knew_hat=Function(U)
         beta=Function(P)
-        eq_pred=build_predictor_form(W,dt,mesh,nue,bc_tang,v_k,u_n,p_n,order)
+        eq_pred=build_predictor_form(W,dt,mesh,nue,bc_tang,v_k,u_n,p_n,order,IP_stabilityparam_type)
         eq_upd=build_update_form(W,dt,mesh,bc_tang,div_old)
         eq_corr=build_corrector_form(W,dt,mesh,v_knew_hat,beta)
 

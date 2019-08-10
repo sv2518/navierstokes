@@ -1,15 +1,25 @@
 from firedrake import *
 from helpers.both import both 
 
-def diffusion_operator(nue,u,v,n,bc_tang,mesh,stab,order):
+def diffusion_operator(nue,u,v,n,bc_tang,mesh,stab,order,IP_stabilityparam_type):
 
-    #Stability params for Laplacian
-    alpha=Constant(stab)*order**1#interior
-    gamma=Constant(stab)*order**1 #exterior
+    #Stability params for Laplacian 
+    if IP_stabilityparam_type=="order_unscaled": 
+            order_scaling=1
+    elif IP_stabilityparam_type=="linear_order_scaled":  
+        order_scaling=order**1
+    elif IP_stabilityparam_type=="quadratic_order_scaled": 
+        order_scaling=order**2
+    else:
+        order_scaling=order**1
+
+    alpha=Constant(stab)#interior
+    gamma=Constant(stab)#exterior
+    
     h=CellVolume(mesh)/FacetArea(mesh)  
     havg=avg(CellVolume(mesh))/FacetArea(mesh)
-    kappa1=nue*alpha/havg
-    kappa2=nue*gamma/h
+    kappa1=nue*alpha/havg*order_scaling
+    kappa2=nue*gamma/h*order_scaling
 
     #laplacian for interior domain and interior facets
     lapl_dg=(

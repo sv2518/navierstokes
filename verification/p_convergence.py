@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-def p_convergence(cfl_list,order_list,RE,TMAX,XLEN,N,bc_type,output,name):
+def p_convergence(cfl_list,order_list,RE,TMAX,XLEN,N,bc_type,output,IP_stabilityparam_type=None):
     #various erros for velocity and pressure
     linf_error_pres_list=[]
     l2_error_pres_list=[]
@@ -45,9 +45,9 @@ def p_convergence(cfl_list,order_list,RE,TMAX,XLEN,N,bc_type,output,name):
         
             #solve
             if bc_type=="periodic":
-                _,err_u,err_p,_,_ = taylorgreen(dx,D,t_params,RE,XLEN,True,output)
+                _,err_u,err_p,_,_ = taylorgreen(dx,D,t_params,RE,XLEN,IP_stabilityparam_type,True,output)
             elif bc_type=="dirichlet":
-                _,err_u,err_p,_,_ = taylorgreen(dx,D,t_params,RE,XLEN,False,output)
+                _,err_u,err_p,_,_ = taylorgreen(dx,D,t_params,RE,XLEN,IP_stabilityparam_type,False,output)
 
             #update list
             linf_error_velo.append(err_u[0])
@@ -90,5 +90,5 @@ def p_convergence(cfl_list,order_list,RE,TMAX,XLEN,N,bc_type,output,name):
 
         #write convergence rates to csv file
         data_file=pd.DataFrame(data)
-        result="verification/results/taylorgreen_%s_CFL%d_RE%d_TMAX%d_XLEN%d_N%d_BC%s.csv"%(name,cfl,RE,TMAX,XLEN,N,bc_type)
+        result="verification/results/taylorgreen_%s_CFL%d_RE%d_TMAX%d_XLEN%d_N%d_BC%s.csv"%(IP_stabilityparam_type,cfl,RE,TMAX,XLEN,N,bc_type)
         data_file.to_csv(result, index=False, mode="w")
