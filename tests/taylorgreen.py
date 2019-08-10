@@ -6,7 +6,7 @@ import math
 from firedrake.petsc import PETSc
 
 
-def taylorgreen(dx_size,dimension,time_params,RE,XLEN,periodic=False,output=False):
+def taylorgreen(dx_size,dimension,time_params,RE,XLEN,IP_stabilityparam_type=None,periodic=False,output=False):
     with PETSc.Log.Event("configuration"):
         outfile=File("./output/taylorgreen/taylorgreen.pvd")
 
@@ -49,8 +49,8 @@ def taylorgreen(dx_size,dimension,time_params,RE,XLEN,periodic=False,output=Fals
         t=Constant(0)
         x, y = SpatialCoordinate(mesh)
         k=2*pi/LX
-        ux=cos(k*y)*sin(k*x)*exp(-2*k**2*LX*t*dt)
-        uy=-sin(k*y)*cos(k*x)*exp(-2*k**2*LX*t*dt)
+        ux=cos(k*y)*sin(k*x)*exp(-2*k**2*t*dt)
+        uy=-sin(k*y)*cos(k*x)*exp(-2*k**2*t*dt)
         bc_expr=as_vector((ux,uy))
 
         bc_tang=[]
@@ -65,11 +65,11 @@ def taylorgreen(dx_size,dimension,time_params,RE,XLEN,periodic=False,output=Fals
         bc=[bc_norm,bc_tang,bc_expr]
 
 
-        p_exact=-1/4*(cos(2*k*x)+cos(2*k*y))*exp(-4*k**2*LX*(t+0.5)*dt*nue)
+        p_exact=-1/4*(cos(2*k*x)+cos(2*k*y))*exp(-4*k**2*(t+0.5)*dt*nue)
 
     with PETSc.Log.Event("spcs"):
         #run standard pressure correction scheme to solve Navier Stokes equations
-        sol=spcs(W,mesh,nue,bc,0,t,dt,T,outfile,dimension,bc_expr,None,output)
+        sol=spcs(W,mesh,nue,bc,0,t,dt,T,outfile,dimension,IP_stabilityparam_type,bc_expr,None,output)
 
     with PETSc.Log.Event("postprocessing"):
         #return errors
