@@ -85,11 +85,11 @@ def taylorgreen(dx_size,dimension,time_params,RE,XLEN,IP_stabilityparam_type=Non
         h1_err_p=errornorm(sol.sub(1),Function(P).project(p_exact),"H1")
 
 
-        plot(Function(U).project(sol.sub(0)))
-        plt.show()
+        #plot(Function(U).project(sol.sub(0)))
+        #plt.show()
 
-        plot(Function(U).project(u_exact))
-        plt.show()
+        #plot(Function(U).project(u_exact))
+        #plt.show()
 
         #plot(Function(U).project(sol.sub(0)-Function(U).project(u_exact)))
         #plt.show()
