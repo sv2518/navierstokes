@@ -18,9 +18,9 @@ from mpi4py import MPI
 parameters["pyop2_options"]["lazy_evaluation"] = False
 
 cfl=10#cfl number
-order_list=[1,2,3,4]#space dimension
+order_list=[1]#,2,3,4]#space dimension
 RE=1#reynolds number
-N_list=[5,6]#,7,8,9]#5#fe number (space discretisation)
+N_list=[5]#,6]#,7,8,9]#5#fe number (space discretisation)
 TMAX=1
 XLEN=2*pi
 bc_type="dirichlet"
@@ -45,7 +45,7 @@ for order in order_list:
 
         #solve problem for timings
         with PETSc.Log.Event("taylorgreen"):
-            w,err_u,err_p,_,comm = taylorgreen(dx,order,t_params,RE,False,output)
+            w,err_u,err_p,_,comm = taylorgreen(dx,order,t_params,RE,XLEN,None,False,output)
 
         tas_data={"order": order,
               "N": N,
@@ -82,6 +82,13 @@ for order in order_list:
         pcapply = PETSc.Log.Event("PCApply").getPerfInfo()
         jac_eval = PETSc.Log.Event("SNESJacobianEval").getPerfInfo()
         residual = PETSc.Log.Event("SNESFunctionEval").getPerfInfo()
+        HDGinit = PETSc.Log.Event("SCPCInit").getPerfInfo()["time"]
+        HDGupdate = PETSc.Log.Event("SCPCUpdate").getPerfInfo()["time"]
+        HDGrhs = PETSc.Log.Event("SCForwardElim").getPerfInfo()["time"]
+        HDGrecon = PETSc.Log.Event("SCBackSub").getPerfInfo()["time"]
+        HDGsolve = PETSc.Log.Event("SCSolve").getPerfInfo()["time"]
+        HDGtotal=HDGinit+HDGupdate+HDGrhs+HDGrecon+HDGsolve 
+
         internal_time_data={
             #Scalable Nonlinear Equations Solvers
             "snes_time_pred" : comm.allreduce(snes["time"], op=MPI.SUM) / comm.size,
@@ -90,7 +97,13 @@ for order in order_list:
             "pc_setup_time_pred" : comm.allreduce(pcsetup["time"], op=MPI.SUM) / comm.size,
             "pc_apply_time_pred": comm.allreduce(pcapply["time"], op=MPI.SUM) / comm.size,
             "jac_eval_time_pred" :comm.allreduce(jac_eval["time"], op=MPI.SUM) / comm.size,
-            "res_eval_time_pred" : comm.allreduce(residual["time"], op=MPI.SUM) / comm.size
+            "res_eval_time_pred" : comm.allreduce(residual["time"], op=MPI.SUM) / comm.size,
+            "HDGInit": HDGinit,
+            "HDGUpdate": HDGupdate,
+            "HDGRhs": HDGrhs,
+            "HDGRecover": HDGrecon,
+            "HDGTraceSolve": HDGsolve,
+            "HDGTotal": HDGtotal
         }
         PETSc.Log.Stage("predictor solve").pop()
         tas_data.update(internal_time_data)
@@ -105,6 +118,13 @@ for order in order_list:
         pcapply = PETSc.Log.Event("PCApply").getPerfInfo()
         jac_eval = PETSc.Log.Event("SNESJacobianEval").getPerfInfo()
         residual = PETSc.Log.Event("SNESFunctionEval").getPerfInfo()
+        HDGinit = PETSc.Log.Event("SCPCInit").getPerfInfo()["time"]
+        HDGupdate = PETSc.Log.Event("SCPCUpdate").getPerfInfo()["time"]
+        HDGrhs = PETSc.Log.Event("SCForwardElim").getPerfInfo()["time"]
+        HDGrecon = PETSc.Log.Event("SCBackSub").getPerfInfo()["time"]
+        HDGsolve = PETSc.Log.Event("SCSolve").getPerfInfo()["time"]
+        HDGtotal=HDGinit+HDGupdate+HDGrhs+HDGrecon+HDGsolve 
+
         internal_time_data={
             #Scalable Nonlinear Equations Solvers
             "snes_time_upd" : comm.allreduce(snes["time"], op=MPI.SUM) / comm.size,
@@ -113,7 +133,13 @@ for order in order_list:
             "pc_setup_time_upd" : comm.allreduce(pcsetup["time"], op=MPI.SUM) / comm.size,
             "pc_apply_time_upd": comm.allreduce(pcapply["time"], op=MPI.SUM) / comm.size,
             "jac_eval_time_upd" :comm.allreduce(jac_eval["time"], op=MPI.SUM) / comm.size,
-            "res_eval_time_upd" : comm.allreduce(residual["time"], op=MPI.SUM) / comm.size
+            "res_eval_time_upd" : comm.allreduce(residual["time"], op=MPI.SUM) / comm.size,
+            "HDGInit": HDGinit,
+            "HDGUpdate": HDGupdate,
+            "HDGRhs": HDGrhs,
+            "HDGRecover": HDGrecon,
+            "HDGTraceSolve": HDGsolve,
+            "HDGTotal": HDGtotal
         }
         PETSc.Log.Stage("update solve").pop()
         tas_data.update(internal_time_data)
@@ -128,6 +154,13 @@ for order in order_list:
         pcapply = PETSc.Log.Event("PCApply").getPerfInfo()
         jac_eval = PETSc.Log.Event("SNESJacobianEval").getPerfInfo()
         residual = PETSc.Log.Event("SNESFunctionEval").getPerfInfo()
+        HDGinit = PETSc.Log.Event("SCPCInit").getPerfInfo()["time"]
+        HDGupdate = PETSc.Log.Event("SCPCUpdate").getPerfInfo()["time"]
+        HDGrhs = PETSc.Log.Event("SCForwardElim").getPerfInfo()["time"]
+        HDGrecon = PETSc.Log.Event("SCBackSub").getPerfInfo()["time"]
+        HDGsolve = PETSc.Log.Event("SCSolve").getPerfInfo()["time"]
+        HDGtotal=HDGinit+HDGupdate+HDGrhs+HDGrecon+HDGsolve 
+
         internal_time_data={
             #Scalable Nonlinear Equations Solvers
             "snes_time_corr" : comm.allreduce(snes["time"], op=MPI.SUM) / comm.size,
@@ -136,8 +169,15 @@ for order in order_list:
             "pc_setup_time_corr" : comm.allreduce(pcsetup["time"], op=MPI.SUM) / comm.size,
             "pc_apply_time_corr": comm.allreduce(pcapply["time"], op=MPI.SUM) / comm.size,
             "jac_eval_time_corr" :comm.allreduce(jac_eval["time"], op=MPI.SUM) / comm.size,
-            "res_eval_time_corr" : comm.allreduce(residual["time"], op=MPI.SUM) / comm.size
+            "res_eval_time_corr" : comm.allreduce(residual["time"], op=MPI.SUM) / comm.size,
+            "HDGInit": HDGinit,
+            "HDGUpdate": HDGupdate,
+            "HDGRhs": HDGrhs,
+            "HDGRecover": HDGrecon,
+            "HDGTraceSolve": HDGsolve,
+            "HDGTotal": HDGtotal
         }
+
         PETSc.Log.Stage("corrector solve").pop()
 
 
