@@ -20,6 +20,7 @@ def defineSolverParameters():
 ##########################
 
     parameters_velo_iter={
+        'ksp_type': 'fgmres',
         'pc_type': 'gamg',
         'pc_gamg_sym_graph': True,
         'mg_levels': {'ksp_type': 'gmres',
@@ -28,13 +29,40 @@ def defineSolverParameters():
                      'sub_pc_type': 'ilu'}
     }    
 
-    parameters_pres_better={
+    parameters_velo_better={
+        'ksp_type': 'fgmres',
+        'ksp_rtol': 1e-8,
+        'ksp_max_it': 500,
+        'ksp_gmres_restart': 30,
+        'pc_type': 'ml',
+        'pc_mg_cycles': 1,
+        'pc_ml_maxNlevels': 25,
+        'mg_levels': {
+                'ksp_type': 'richardson',
+                'ksp_richardson_scale': 0.8,
+                'pc_type': 'bjacobi',
+                'sub_pc_type': 'ilu',
+                'ksp_max_it': 3
+        }
+    }   
+
+    parameters_pres_iter={
                         'mat_type': 'matfree',
                         'ksp_type': 'preonly',
                         'pc_type': 'python',
                         'pc_python_type': 'firedrake.HybridizationPC',
                         'hybridization': {'ksp_type': 'cg',
                                             'pc_type': 'none',
+                                            'ksp_rtol': 1e-8}
+    }
+    
+    parameters_pres_iter_better={
+                        'mat_type': 'matfree',
+                        'ksp_type': 'preonly',
+                        'pc_type': 'python',
+                        'pc_python_type': 'firedrake.HybridizationPC',
+                        'hybridization': {'ksp_type': 'cg',
+                                            'pc_type': 'gamg',
                                             'ksp_rtol': 1e-8}
     }
 
@@ -89,7 +117,7 @@ def defineSolverParameters():
     }
 
     spsc_direct_params=[parameters_velo_direct,parameters_pres_direct,parameters_corr_direct] 
-    spsc_iter_params=[parameters_velo_iter,parameters_pres_better,parameters_corr_iter] 
+    spsc_iter_params=[parameters_velo_iter,parameters_pres_iter_better,parameters_corr_iter] 
     spsc_initial_params=[parameters_velo_initial]
     return [spsc_direct_params,spsc_iter_params,spsc_initial_params]
     #return [parameters_pres_iter,parameters_corr_iter,parameters_pres,parameters_pres_better,parameters_velo_iter,parameters_velo_initial,parameters_kovasznay]

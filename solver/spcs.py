@@ -42,12 +42,12 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,IP_stabilityparam_type=None,u_
         divtest=Function(P).project(div(u_init_sol))
         print("Div error of initial velocity",errornorm(divtest,Function(P)))
 
-        #check in analytical solutions is given
+        #check if analytical solutions is given
         if p_init:
             x,y=SpatialCoordinate(W.mesh())
             p_init_sol=Function(P).project(p_init)
         else:
-            #with that initial value calculate intial pressure 
+            #with the initial value calculate initial pressure 
             #with Poission euqation including some non-divergence free velocity
             p_init_sol=initial_pressure(W,dt,mesh,nue,bc,u_init_sol,order,IP_stabilityparam_type)
     
@@ -79,7 +79,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,IP_stabilityparam_type=None,u_
         with PETSc.Log.Event("update"):
             w_upd = Function(W)
             nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
-            update= LinearVariationalProblem(lhs(eq_upd),rhs(eq_upd),w_upd,bc_norm)#BC RIGHT???
+            update= LinearVariationalProblem(lhs(eq_upd),rhs(eq_upd),w_upd,bc_norm)
             solver_upd= LinearVariationalSolver(update,solver_parameters=parameters_pres,appctx=appctx)
             
         with PETSc.Log.Event("corrector"):
