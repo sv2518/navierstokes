@@ -24,13 +24,13 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,IP_stabilityparam_type=None,u_
         parameters_pres=parameters_iter[1]
         parameters_corr=parameters_iter[2]
 
-        print(parameters_iter)
+        PETSc.Sys.Print(parameters_iter)
 
         #split up boundary conditions
         [bc_norm,bc_tang,bc_expr]=bc
 
     with PETSc.Log.Event("initial values"):
-        print("\nCALCULATE INITIAL VALUES")########################################################
+        PETSc.Sys.Print("\nCALCULATE INITIAL VALUES")########################################################
         #check if analytical initial condition is given
         if(u_init):
             u_init_sol=Function(U).project(u_init)
@@ -40,7 +40,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,IP_stabilityparam_type=None,u_
 
         
         divtest=Function(P).project(div(u_init_sol))
-        print("Div error of initial velocity",errornorm(divtest,Function(P)))
+        PETSc.Sys.Print("Div error of initial velocity",errornorm(divtest,Function(P)))
 
         #check if analytical solutions is given
         if p_init:
@@ -52,7 +52,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,IP_stabilityparam_type=None,u_
             p_init_sol=initial_pressure(W,dt,mesh,nue,bc,u_init_sol,order,IP_stabilityparam_type)
     
     with PETSc.Log.Event("build forms"):
-        print("\nBUILD FORMS")#####################################################################
+        PETSc.Sys.Print("\nBUILD FORMS")#####################################################################
         v_k=Function(U)
         u_n=Function(U)
         p_n=Function(P)   
@@ -64,7 +64,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,IP_stabilityparam_type=None,u_
         eq_corr=build_corrector_form(W,dt,mesh,v_knew_hat,beta)
 
     with PETSc.Log.Event("build problems and solvers"):
-        print("\nBUILD PROBLEM AND SOLVERS")########################################################
+        PETSc.Sys.Print("\nBUILD PROBLEM AND SOLVERS")########################################################
         
         nullspace=MixedVectorSpaceBasis(W,[W.sub(0),VectorSpaceBasis(constant=True)])
         def nullspace_basis(T):
@@ -97,16 +97,16 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,IP_stabilityparam_type=None,u_
             outfile.write(u_n,p_n,time=0)
 
         divtest=Function(P).project(div(u_n))
-        print("Div error of initial velocity",errornorm(divtest,Function(P)))
+        PETSc.Sys.Print("Div error of initial velocity %d"%errornorm(divtest,Function(P)))
 
-        print("\nTIME PROGRESSING")################################################################
+        PETSc.Sys.Print("\nTIME PROGRESSING")################################################################
         #outerloop for time progress
         n = 1
         while n < (T+1) :
             #update time-dependent boundary
             t.assign(n)
-            print("t is: ",n*dt)
-            print("n is: ",n)
+            PETSc.Sys.Print("t is: ",n*dt)
+            PETSc.Sys.Print("n is: ",n)
 
             if bc_tang:
                 bc_tang[0]=[bc_tang[0][0].project(bc_expr),4]
@@ -120,7 +120,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,IP_stabilityparam_type=None,u_
             v_k.assign(u_n)
 
             with PETSc.Log.Event("picard iteration"):
-                print("\n1)PREDICTOR")##################################################################
+                PETSc.Sys.Print("\n1)PREDICTOR")##################################################################
                 #loop for non-linearity
                 while(True):  
 
@@ -130,18 +130,18 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,IP_stabilityparam_type=None,u_
                     #convergence criterion
                     eps=errornorm(v_k,w_pred)#l2 by default          
                     counter+=1
-                    print("Picard iteration counter: ",counter,"Picard iteration norm: ",eps)
+                    PETSc.Sys.Print("Picard iteration counter: ",counter,"Picard iteration norm: ",eps)
                     if(counter>6):#eps<10**(-8)):
-                        print("Picard iteration converged")  
+                        PETSc.Sys.Print("Picard iteration converged")  
                         break      
                     else:
                         v_k.assign(w_pred)
             
-                print("\n2) PRESSURE UPDATE")#########################################################
+                PETSc.Sys.Print("\n2) PRESSURE UPDATE")#########################################################
                 #first modify update form
                 div_old_temp=Function(P).project(div(w_pred))
                 div_old.assign(div_old_temp)
-                print("Div error of predictor velocity",errornorm(div_old,Function(P)))
+                PETSc.Sys.Print("Div error of predictor velocity",errornorm(div_old,Function(P)))
 
                 #solve update equation
                 with timed_stage("update solve"):
@@ -151,7 +151,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,IP_stabilityparam_type=None,u_
                 #update pressure
                 p_knew=Function(P).assign(p_n+betasol)
 
-                print("\n3) CORRECTOR")##############################################################
+                PETSc.Sys.Print("\n3) CORRECTOR")##############################################################
                 #first modify corrector form        
                 v_knew_hat.assign(w_pred)
                 beta.assign(betasol)
@@ -163,7 +163,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,IP_stabilityparam_type=None,u_
 
             #divtest
             divtest=Function(P).project(div(usol))
-            print("Div error of corrector velocity",errornorm(divtest,Function(P)))
+            PETSc.Sys.Print("Div error of corrector velocity",errornorm(divtest,Function(P)))
 
             #update for next time step
             u_n.assign(usol)

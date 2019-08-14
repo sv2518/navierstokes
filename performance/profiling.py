@@ -22,11 +22,11 @@ def get_internal_timedata(state):
 
     #PREDICTOR
     PETSc.Log.Stage("predictor solve").push()
-    snes=PETSc.Log.Event("SNESSolve").getPerfInfo()["time"]
-    ksp = PETSc.Log.Event("KSPSolve").getPerfInfo()["time"]
+    snes=PETSc.Log.Event("SNESSolve").getPerfInfo()["time"]#general solve time(preconditioner application, linear solvers, assembly)
+    ksp = PETSc.Log.Event("KSPSolve").getPerfInfo()["time"]#solely Krylov solve
     pcsetup = PETSc.Log.Event("PCSetUp").getPerfInfo()["time"]
-    pcapply = PETSc.Log.Event("PCApply").getPerfInfo()["time"]
-    jac_eval = PETSc.Log.Event("SNESJacobianEval").getPerfInfo()["time"]
+    pcapply = PETSc.Log.Event("PCApply").getPerfInfo()["time"]#solve
+    jac_eval = PETSc.Log.Event("SNESJacobianEval").getPerfInfo()["time"]#assembly
     residual = PETSc.Log.Event("SNESFunctionEval").getPerfInfo()["time"]
     PETSc.Log.Stage("predictor solve").pop()
 
@@ -46,16 +46,15 @@ def get_internal_timedata(state):
     snes=PETSc.Log.Event("SNESSolve").getPerfInfo()["time"]
     ksp = PETSc.Log.Event("KSPSolve").getPerfInfo()["time"]
     pcsetup = PETSc.Log.Event("PCSetUp").getPerfInfo()["time"]
-    pcapply = PETSc.Log.Event("PCApply").getPerfInfo()["time"]
+    pcapply = PETSc.Log.Event("PCApply").getPerfInfo()["time"]#solving time
     jac_eval = PETSc.Log.Event("SNESJacobianEval").getPerfInfo()["time"]
     residual = PETSc.Log.Event("SNESFunctionEval").getPerfInfo()["time"]
-    RHS = PETSc.Log.Event("HybridRHS").getPerfInfo()["time"]
-    trace = PETSc.Log.Event("SCSolve").getPerfInfo()["time"]
-    proj = PETSc.Log.Event("HybridProject").getPerfInfo()["time"]
-    full_recon = PETSc.Log.Event("SCBackSub").getPerfInfo()["time"]
-    hybridbreak = PETSc.Log.Event("HybridBreak").getPerfInfo()["time"]        
-    hybridupdate = PETSc.Log.Event("HybridUpdate").getPerfInfo()["time"]
+    elim= PETSc.Log.Event("SCForwardElim").getPerfInfo()["time"]#elimination time (rhs)
+    trace = PETSc.Log.Event("SCSolve").getPerfInfo()["time"]#trace solve time
+    full_recon = PETSc.Log.Event("SCBackSub").getPerfInfo()["time"]#backsub time
+    hybridassembly= PETSc.Log.Event("HybridOperatorAssembly").getPerfInfo()["time"]#assembly time (inside init)    
     hybridinit = PETSc.Log.Event("HybridInit").getPerfInfo()["time"]
+    hybridupdate = PETSc.Log.Event("HybridUpdate").getPerfInfo()["time"]
     PETSc.Log.Stage("update solve").pop()
 
     internal_timedata.update({
@@ -68,11 +67,12 @@ def get_internal_timedata(state):
             "jac_eval_time_upd"+state:comm.allreduce(jac_eval, op=MPI.SUM) / comm.size,
             "res_eval_time_upd"+state: comm.allreduce(residual, op=MPI.SUM) / comm.size,
             "HDGInit"+state: comm.allreduce(hybridinit, op=MPI.SUM) / comm.size,
+            "HDGAssembly"+state: comm.allreduce(hybridassembly, op=MPI.SUM) / comm.size,
             "HDGUpdate"+state: comm.allreduce(hybridupdate, op=MPI.SUM) / comm.size,
-            "HDGRhs"+state: comm.allreduce(RHS, op=MPI.SUM) / comm.size,
+            "HDGRhs"+state: comm.allreduce(elim, op=MPI.SUM) / comm.size,
             "HDGRecover"+state: comm.allreduce(full_recon, op=MPI.SUM) / comm.size,
             "HDGTraceSolve"+state: comm.allreduce(trace, op=MPI.SUM) / comm.size,
-            "HDGTotal"+state: hybridinit+hybridupdate+ RHS+full_recon+trace        
+            "HDGTotal"+state: hybridinit+hybridupdate+ elim+full_recon+trace        
             })
     
     #CORRECTOR
@@ -98,67 +98,13 @@ def get_internal_timedata(state):
     
     return internal_timedata
 
-
-
-
-parameters["pyop2_options"]["lazy_evaluation"] = False
-
-cfl=10#cfl number
-order_list=[2]#,2,3,4]#space dimension
-RE=1#reynolds number
-N_list=[6]#,6]#,7,8,9]#5#fe number (space discretisation)
-TMAX=1
-XLEN=2*pi
-bc_type="dirichlet"
-output=False
-
-
-for order in order_list:
-    c=0
-    tas_data_rows=[]
-    for N in N_list:
-        #dx defined over element number & space dimensions
-        dx=XLEN/2**N
-
-        # cfl number restrics size of dt
-        dt=cfl/order**2*XLEN/(2*2**N)
-        print(dt)
-        T=TMAX/dt
-        t_params=[dt,T]
-        
-        #initiate the logging
-        tas_data={}
-
-########warm up solver
-        with PETSc.Log.Event("warm up"):
-            w,err_u,err_p,_,comm = taylorgreen(dx,order,t_params,RE,XLEN,None,False,output)
-            internal_timedata_cold=get_internal_timedata("cold")
-            temp_internal_timedata_cold=get_internal_timedata("warm")#temp needed for subtraction 
-
-        tas_data.update(internal_timedata_cold)
-        print("cold solve: ")
-        print(tas_data)
-
-########get timings for solving without assembly
-
-        with PETSc.Log.Event("second solve"):
-            w,err_u,err_p,_,comm = taylorgreen(dx,order,t_params,RE,XLEN,None,False,output)
-            temp_internal_timedata_warm=get_internal_timedata("warm")
-
-        internal_timedata_warm={key: temp_internal_timedata_warm[key] - temp_internal_timedata_cold.get(key, 0) for key in temp_internal_timedata_warm.keys()}
-        tas_data.update(internal_timedata_warm)
-        print("warm solve: ")
-        print(tas_data)
-
-########add general times
-        tas_data.update({"order": order,
-              "N": N,
-              "dx":dx})
-
-        #gather all time information
-        time_data={
+#general time spend on different parts of the whole run
+def get_external_timedata():
+    #gather all time information
+    time_data={
             "warm up":PETSc.Log.Event("warm up").getPerfInfo()["time"],
             "second solve":PETSc.Log.Event("second solve").getPerfInfo()["time"],
+            "taylorgreen":PETSc.Log.Event("taylorgreen").getPerfInfo()["time"],
             "configuration":PETSc.Log.Event("configuration").getPerfInfo()["time"],
             "spcs":PETSc.Log.Event("spcs").getPerfInfo()["time"],
             "spcs configuration":PETSc.Log.Event("spcs configuration").getPerfInfo()["time"],
@@ -175,20 +121,94 @@ for order in order_list:
             "corrector solve":PETSc.Log.Event("corrector solve").getPerfInfo()["time"],
             "postprocessing":PETSc.Log.Event("postprocessing").getPerfInfo()["time"],
             "dt": dt
-        }
-        tas_data.update(time_data)
-########
+    }
+    return time_data
 
+######################################
+##############   MAIN   ##############
+######################################
+
+parameters["pyop2_options"]["lazy_evaluation"] = False
+
+cfl=10#cfl number
+order_list=[1,2,3,4,5,6,7,8]#space dimension
+RE=1#reynolds number
+N_list=[9]#,6]#,7,8,9]#5#fe number (space discretisation)
+TMAX=1
+XLEN=2*pi
+bc_type="periodic"
+output=False
+splitstates=False
+dofcount=200000
+
+
+dofpercell=0
+for order in order_list:
+    c=0
+    tas_data_rows=[]
+    for N in N_list:
+        #dx defined over element number & space dimensions
+        print(dofpercell)
+        dx=math.sqrt(XLEN**2*(order**2+0+2*order+dofpercell)/dofcount)#/2**N
+        PETSc.Sys.Print("!!!!dx is:",dx)
+        dofpercell+=(order)*4###TAKE CARE, this is based on the fact that my orderlist goes from 1 to 4
         
 
+        #cfl number restrics size of dt for stability
+        #scaled by order**2 (some people say it should be to the power of 1, some 1.5)
+        #chose two bc better too small than too large
+        #divided by two bc 2d
+        dt=cfl/order**2*dx/2
+        PETSc.Sys.Print(dt)
+
+        #number of timesteps
+        T=TMAX/dt
+        t_params=[dt,T]
+        
+        #initiate the logging
+        PETSc.Log.begin()
+        tas_data={}
+
+########get internal time data of solvers
+        if splitstates:
+        ###warm up solver
+            with PETSc.Log.Event("warm up"):
+                w,err_u,err_p,_,comm = taylorgreen(dx,order,t_params,RE,XLEN,None,False,output)
+                internal_timedata_cold=get_internal_timedata("cold")
+                temp_internal_timedata_cold=get_internal_timedata("warm")#temp needed for subtraction 
+
+            tas_data.update(internal_timedata_cold)
+
+        ###get timings for solving without assembly
+            with PETSc.Log.Event("second solve"):
+                w,err_u,err_p,_,comm = taylorgreen(dx,order,t_params,RE,XLEN,None,False,output)
+                temp_internal_timedata_warm=get_internal_timedata("warm")
+
+            internal_timedata_warm={key: temp_internal_timedata_warm[key] - temp_internal_timedata_cold.get(key, 0) for key in temp_internal_timedata_warm.keys()}
+            tas_data.update(internal_timedata_warm)
+
+        else:
+        ###get timings for solving one run
+            with PETSc.Log.Event("taylorgreen"):
+                w,err_u,err_p,_,comm = taylorgreen(dx,order,t_params,RE,XLEN,None,False,output)
+                internal_timedata=get_internal_timedata("")
+
+            tas_data.update(internal_timedata)
+
+########add general times spend on different parts
+        external_timedata=get_external_timedata()
+        tas_data.update(external_timedata)
 
 ########add further information
+        #spatial setup information
+        tas_data.update({"order": order,
+              "N": N,
+              "dx":dx})
 
         #gather dofs
         u,p=w.split()
         u_dofs=u.dof_dset.layout_vec.getSize() 
         p_dofs=p.dof_dset.layout_vec.getSize()
-
 
         size_data={
             "velo dofs": u_dofs,
@@ -198,6 +218,7 @@ for order in order_list:
 
         tas_data.update(size_data)
 
+        #gather errrors
         accuracy_data={
                     "LinfPres": err_p[0],
                     "LinfVelo": err_u[0],
@@ -209,13 +230,14 @@ for order in order_list:
 
         tas_data.update(accuracy_data)
 
-        tas_data_rows.append(tas_data)
-###########
+########update rows
+#        tas_data_rows.append(tas_data)
 
 
-    #write out data to .csv
-    datafile = pd.DataFrame(tas_data_rows)  
-    result="results/timedata_taylorgreen_ORDER%d_CFL%d_RE%d_TMAX%d_XLEN%d_BC%s.csv"%(order,cfl,RE,TMAX,XLEN,bc_type)
-    if not os.path.exists(os.path.dirname('results/')):
-            os.makedirs(os.path.dirname('results/'))
-    datafile.to_csv(result, index=False,mode="w", header=True)
+        #write out data to .csv
+        #datafile = pd.DataFrame(tas_data_rows) 
+        datafile = pd.DataFrame(tas_data,index=[0])   
+        result="results/timedata_taylorgreen_ORDER%d_CFL%d_RE%d_TMAX%d_XLEN%d_BC%s_N%d.csv"%(order,cfl,RE,TMAX,XLEN,bc_type,N)
+        if not os.path.exists(os.path.dirname('results/')):
+                os.makedirs(os.path.dirname('results/'))
+        datafile.to_csv(result, index=False,mode="w", header=True)

@@ -1,8 +1,9 @@
 from firedrake import *
 from forms.operators import *
+from firedrake.petsc import PETSc
 
 def build_predictor_form(W,dt,mesh,nue,bc_tang,v_k,u_n,p_n,order,IP_stabilityparam_type=None):
-    print("....build predictor")
+    PETSc.Sys.Print("....build predictor")
 
     #subspaces
     U=W.sub(0)
@@ -27,7 +28,7 @@ def build_predictor_form(W,dt,mesh,nue,bc_tang,v_k,u_n,p_n,order,IP_stabilitypar
     return eq_pred
 
 def build_update_form(W,dt,mesh,bc_tang,div_old):
-    print("....build pressure update")
+    PETSc.Sys.Print("....build pressure update")
 
     #subspaces
     U=W.sub(0)
@@ -46,7 +47,7 @@ def build_update_form(W,dt,mesh,bc_tang,div_old):
     return eq_upd
 
 def build_corrector_form(W,dt,mesh,v_knew_hat,beta):
-    print("....build corrector")
+    PETSc.Sys.Print("....build corrector")
     
     #subspaces
     U=W.sub(0)

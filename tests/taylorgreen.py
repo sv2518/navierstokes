@@ -29,7 +29,7 @@ def taylorgreen(dx_size,dimension,time_params,RE,XLEN,IP_stabilityparam_type=Non
         NU=1/RE
         nue=Constant(NU) 
         [dt,T]=time_params
-        print("dt is: ",dt)
+        PETSc.Sys.Print("dt is: ",dt)
 
         #normal boundary conditions
         if periodic:

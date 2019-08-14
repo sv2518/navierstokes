@@ -9,11 +9,11 @@ import os
 def solveassembly_internal(columns,axis10,axis11,order):
     #gather internal data
     timeassemblypred_int=columns["jac_eval_time_pred"]
-    timesolvepred_int=columns["snes_time_pred"]
-    timeassemblyupd_int=columns["jac_eval_time_upd"]
-    timesolveupd_int=columns["snes_time_upd"]
+    timesolvepred_int=columns["pc_apply_time_pred"]
+    timeassemblyupd_int=columns["HDGAssembly"]
+    timesolveupd_int=columns["pc_apply_time_upd"]
     timeassemblycorr_int=columns["jac_eval_time_corr"]
-    timesolvecorr_int=columns["snes_time_corr"]
+    timesolvecorr_int=columns["pc_apply_time_corr"]
 
     #collect times
     timeassembly_int=timeassemblypred_int+timeassemblyupd_int+timeassemblycorr_int
@@ -44,7 +44,7 @@ def solveassembly_internal(columns,axis10,axis11,order):
                  linewidth=1,color="blue",bottom=b)
     
     axis9.legend((a12[0],a13[0]),
-    ("assembly (snes jacobian eval)", "solve (KSP solve)"))
+    ("assembly (snes jacobian eval/hybrid operator assembly)", "solve (PC apply)"))
     axis9.set_xlabel('Parts')
     axis9.set_ylabel('Normalised Time')
     fig9.savefig("solveassembly_internal/tasparts_relative_internal_order%d.pdf"%(order_list[i-1]), dpi=150)
@@ -71,7 +71,7 @@ def solveassembly_internal(columns,axis10,axis11,order):
                  linewidth=1,color="blue",bottom=b)
     
     axis9.legend((a12[0],a13[0]),
-    ("assembly (snes jacobian eval)", "solve (KSP solve)"))
+    ("assembly (snes jacobian eval/hybrid operator assembly)", "solve (PC apply)"))
     axis9.set_xlabel('Parts')
     axis9.set_ylabel('Time [s]')
     fig9.savefig("solveassembly_internal/tasparts_absolute_internal_order%d.pdf"%(order_list[i-1]), dpi=150)
@@ -103,11 +103,11 @@ def solveassembly_internal(columns,axis10,axis11,order):
 order_list=[1,2,3]#,4]
 
 #gather all filenames
-order_data= ["results/timedata_taylorgreen_ORDER%d_CFL10_RE1_TMAX1_XLEN6_BCdirichlet.csv" % i
+order_data= ["results/timedata_taylorgreen_ORDER%d_CFL10_RE1_TMAX1_XLEN6_BCdirichlet_N6.csv" % i
               for i in order_list]
 
 #readin all data
-readin_data = pd.concat(pd.read_csv(data,nrows=1) for data in order_data)
+readin_data = pd.concat(pd.read_csv(data) for data in order_data)
 #readin_data=readin_data.iloc[1,:]#only for one N
 
 #order data by order number
@@ -118,6 +118,7 @@ dof_list = [e[1] for e in readin_data["sum dofs"].drop_duplicates().items()]#use
 
 if not os.path.exists(os.path.dirname('distribution_external/')):
             os.makedirs(os.path.dirname('distribution_external/'))
+
 #plot overall percentages
 fig1= plt.figure(1)
 axis1 = fig1.gca()

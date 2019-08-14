@@ -1,11 +1,12 @@
 from firedrake import *
 from forms.operators import *
 from solver.parameters import *
+from firedrake.petsc import PETSc
 
 
 #INITAL VALUES: solve the following from for initial values
 def initial_velocity(W,dt,mesh,bc,nue,order,IP_stabilityparam_type=None):
-    print("....Solving Stokes problem for initial velocity ....")
+    PETSc.Sys.Print("....Solving Stokes problem for initial velocity ....")
     parameters_velo_initial=defineSolverParameters()[2][0]#initial,velo
 
     #extract bc and parameters
@@ -32,7 +33,7 @@ def initial_velocity(W,dt,mesh,bc,nue,order,IP_stabilityparam_type=None):
     return u_init_sol
 
 def initial_pressure(W,dt,mesh,nue,bc,u_init,order,IP_stabilityparam_type=None):
-    print("....Solving problem for initial pressure ....")
+    PETSc.Sys.Print("....Solving problem for initial pressure ....")
 
     #extract bcs, parameters and subspace
     [bc_norm,bc_tang,bc_expr]=bc
@@ -42,7 +43,7 @@ def initial_pressure(W,dt,mesh,nue,bc,u_init,order,IP_stabilityparam_type=None):
     P=W.sub(1)
 
     ############################################################################
-    print(".........part1: solve for some non-divergence free velocity field")
+    PETSc.Sys.Print(".........part1: solve for some non-divergence free velocity field")
     #functions
     F=TrialFunction(U)
     v=TestFunction(U)
@@ -64,7 +65,7 @@ def initial_pressure(W,dt,mesh,nue,bc,u_init,order,IP_stabilityparam_type=None):
     F_init_sol=Function(U).assign(w_init)
 
     ############################################################################
-    print("........part2: solve mixed possion problem for initial pressure ")
+    PETSc.Sys.Print("........part2: solve mixed possion problem for initial pressure ")
     
     #functions
     w,beta = TrialFunctions(W)
@@ -74,7 +75,7 @@ def initial_pressure(W,dt,mesh,nue,bc,u_init,order,IP_stabilityparam_type=None):
     #correction form for initial pressure
     #divergence of projected velocity acts like forcing 
     f_pres=Function(P).project(div(F_init_sol))
-    print("Div error of projected velocity",errornorm(f_pres,Function(P)))
+    PETSc.Sys.Print("Div error of projected velocity",errornorm(f_pres,Function(P)))
     force_dg_pres=ibp_product(f_pres,q)
     incomp_dg_pres=ibp_product(div(w),q)
     pres_dg_pres=ibp_product(div(v),beta)

@@ -69,7 +69,8 @@ def defineSolverParameters():
     parameters_corr_iter={
             "ksp_type": "cg",
             "ksp_rtol": 1e-8,
-            'pc_type': 'ilu'
+            'pc_type': 'bjacobi',
+            'sub_pc_type': 'ilu'
     }
 ########################
 
