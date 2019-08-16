@@ -150,9 +150,7 @@ for order in order_list:
         #dx defined over element number & space dimensions
         print(dofpercell)
         dx=math.sqrt(XLEN**2*(order**2+0+2*order+dofpercell)/dofcount)#/2**N
-        PETSc.Sys.Print("!!!!dx is:",dx)
-        dofpercell+=(order)*4###TAKE CARE, this is based on the fact that my orderlist goes from 1 to 4
-        
+        PETSc.Sys.Print("!!!!dx is:",dx) 
 
         #cfl number restrics size of dt for stability
         #scaled by order**2 (some people say it should be to the power of 1, some 1.5)
@@ -241,3 +239,6 @@ for order in order_list:
         if not os.path.exists(os.path.dirname('results/')):
                 os.makedirs(os.path.dirname('results/'))
         datafile.to_csv(result, index=False,mode="w", header=True)
+
+    dofpercell+=(order)*4###TAKE CARE, this is based on the fact that my orderlist goes from 1 to 4
+       
