@@ -139,7 +139,7 @@ XLEN=2*pi
 bc_type="dirichlet"
 output=False
 splitstates=False
-dofcount_list=[100000,200000,400000,800000]
+dofcount_list=[25000,50000,75000,100000,150000,200000,300000,400000,600000,800000]
 
 
 dofpercell=0
