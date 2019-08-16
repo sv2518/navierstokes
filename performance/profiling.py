@@ -139,14 +139,14 @@ XLEN=2*pi
 bc_type="periodic"
 output=False
 splitstates=False
-dofcount=200000
+dofcount_list=[100000,200000,400000,800000,16000000]
 
 
 dofpercell=0
 for order in order_list:
     c=0
     tas_data_rows=[]
-    for N in N_list:
+    for dofcount in dofcount_list:
         #dx defined over element number & space dimensions
         print(dofpercell)
         dx=math.sqrt(XLEN**2*(order**2+0+2*order+dofpercell)/dofcount)#/2**N
@@ -237,7 +237,7 @@ for order in order_list:
         #write out data to .csv
         #datafile = pd.DataFrame(tas_data_rows) 
         datafile = pd.DataFrame(tas_data,index=[0])   
-        result="results/timedata_taylorgreen_ORDER%d_CFL%d_RE%d_TMAX%d_XLEN%d_BC%s_N%d.csv"%(order,cfl,RE,TMAX,XLEN,bc_type,N)
+        result="results/timedata_taylorgreen_ORDER%d_CFL%d_RE%d_TMAX%d_XLEN%d_BC%s_dofs%d.csv"%(order,cfl,RE,TMAX,XLEN,bc_type,dofcount)
         if not os.path.exists(os.path.dirname('results/')):
                 os.makedirs(os.path.dirname('results/'))
         datafile.to_csv(result, index=False,mode="w", header=True)

@@ -12,7 +12,7 @@ def solveassembly_internal(columns,axis10,axis11,order):
     timesolvepred_int=columns["pc_apply_time_pred"]
     timeassemblyupd_int=columns["HDGAssembly"]
     timesolveupd_int=columns["pc_apply_time_upd"]
-    timeassemblycorr_int=columns["jac_eval_time_corr"]
+    timeassemblycorr_int=columns["jac_eval_time_pred"]
     timesolvecorr_int=columns["pc_apply_time_corr"]
 
     #collect times
@@ -100,12 +100,11 @@ def solveassembly_internal(columns,axis10,axis11,order):
 ####################################################################
 #############GENERAL PERFORMANCE DISTRIBUTION PLOTS################
 ####################################################################
-order_list=[1,2,3]#,4]
+order_list=[1,2,3,4,5,6]
 
 #gather all filenames
-order_data= ["results/timedata_taylorgreen_ORDER%d_CFL10_RE1_TMAX1_XLEN6_BCdirichlet_N6.csv" % i
+order_data= ["results/timedata_taylorgreen_ORDER%d_CFL10_RE1_TMAX1_XLEN6_BCperiodic_N9.csv" % i
               for i in order_list]
-
 #readin all data
 readin_data = pd.concat(pd.read_csv(data) for data in order_data)
 #readin_data=readin_data.iloc[1,:]#only for one N
@@ -114,7 +113,9 @@ readin_data = pd.concat(pd.read_csv(data) for data in order_data)
 order_group =readin_data.groupby(["order"], as_index=False)
 
 #gather all dofs
-dof_list = [e[1] for e in readin_data["sum dofs"].drop_duplicates().items()]#use sum dofs instead
+dof_list = [e[1] for e in readin_data["sum dofs"].items()]#use sum dofs instead
+print(dof_list)
+
 
 if not os.path.exists(os.path.dirname('distribution_external/')):
             os.makedirs(os.path.dirname('distribution_external/'))
