@@ -148,6 +148,7 @@ for order in order_list:
     tas_data_rows=[]
     for dofcount in dofcount_list:
         #dx defined over element number & space dimensions
+        print(dofcount)
         print(dofpercell)
         dx=math.sqrt(XLEN**2*(order**2+0+2*order+dofpercell)/dofcount)#/2**N
         PETSc.Sys.Print("!!!!dx is:",dx) 
