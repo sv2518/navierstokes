@@ -136,16 +136,17 @@ RE=1#reynolds number
 #N_list=[9]#,6]#,7,8,9]#5#fe number (space discretisation)
 TMAX=1
 XLEN=2*pi
-bc_type="periodic"
+bc_type="dirichlet"
 output=False
 splitstates=False
-dofcount_list=[25000,50000,75000,100000,150000,200000,300000,400000,600000,800000]
+dofcount_list=[25000,50000,75000,100000,150000,200000,300000,400000,600000,800000,1000000]
 
 
 dofpercell=0
 for order in order_list:
     c=0
     tas_data_rows=[]
+    print("order is:")
     for dofcount in dofcount_list:
         #dx defined over element number & space dimensions
         print(dofcount)
@@ -236,7 +237,7 @@ for order in order_list:
         #write out data to .csv
         #datafile = pd.DataFrame(tas_data_rows) 
         datafile = pd.DataFrame(tas_data,index=[0])   
-        result="results/timedata_taylorgreen_ORDER%d_CFL%d_RE%d_TMAX%d_XLEN%d_BC%s_DOFS%d.csv"%(order,cfl,RE,TMAX,XLEN,bc_type,dofcount)
+        result="results/timedata_taylorgreen_ORDER%d_CFL%d_RE%d_TMAX%d_XLEN%d_BC%s_DOFS%d_PRECON%s.csv"%(order,cfl,RE,TMAX,XLEN,bc_type,dofcount,"gamg")
         if not os.path.exists(os.path.dirname('results/')):
                 os.makedirs(os.path.dirname('results/'))
         datafile.to_csv(result, index=False,mode="w", header=True)
