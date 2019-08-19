@@ -143,7 +143,7 @@ else:
     bc_type_periodic=True
 output=False
 splitstates=False
-dofcount_list=[2000,4000,6000,8000]
+dofcount_list=[10000,15000,20000,25000]
 scaling=None#"quadratic_order_scaled"
 
 dofpercell=0
