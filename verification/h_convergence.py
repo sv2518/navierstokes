@@ -64,7 +64,7 @@ axis.loglog(list_tmp,value*np.power(list_tmp,2),'b-',label="$\propto$ ("+str(xla
 axis.loglog(list_tmp,value*np.power(list_tmp,1),'r-',label="$\propto$ ("+str(xlabel))
 axis.set_xlabel(xlabel)
 axis.set_ylabel('$Error$')
-axis.legend()
-plt.show()
+fig.savefig("verification_velo_periodic.pdf", dpi=150)
+
 
     
