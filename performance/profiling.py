@@ -134,7 +134,7 @@ cfl=10#cfl number
 order_list=[1,2,3,4]#,5,6,7,8]#space dimension
 RE=1#reynolds number
 #N_list=[9]#,6]#,7,8,9]#5#fe number (space discretisation)
-TMAX=1
+TMAX=0.1
 XLEN=2*pi
 bc_type="dirichlet"
 if bc_type=="dirichlet":
