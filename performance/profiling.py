@@ -130,11 +130,11 @@ def get_external_timedata():
 
 parameters["pyop2_options"]["lazy_evaluation"] = False
 
-cfl=10#cfl number
-order_list=[1,2,3,4]#,5,6,7,8]#space dimension
+cfl=0.1#cfl number
+order_list=[1,2,3,4,5,6,7]#space dimension
 RE=1#reynolds number
 #N_list=[9]#,6]#,7,8,9]#5#fe number (space discretisation)
-TMAX=0.1
+TMAX=0.000000001
 XLEN=2*pi
 bc_type="dirichlet"
 if bc_type=="dirichlet":
@@ -143,7 +143,7 @@ else:
     bc_type_periodic=True
 output=False
 splitstates=False
-dofcount_list=[10000,15000,20000,25000]
+dofcount_list=[7000,8000,9000]
 scaling=None#"quadratic_order_scaled"
 
 dofpercell=0
@@ -162,7 +162,7 @@ for order in order_list:
         #scaled by order**2 (some people say it should be to the power of 1, some 1.5)
         #chose two bc better too small than too large
         #divided by two bc 2d
-        dt=cfl/order**2*dx/2
+        dt=TMAX/1#cfl/order**2*dx/2
         PETSc.Sys.Print(dt)
 
         #number of timesteps
@@ -241,7 +241,7 @@ for order in order_list:
         #write out data to .csv
         #datafile = pd.DataFrame(tas_data_rows) 
         datafile = pd.DataFrame(tas_data,index=[0])   
-        result="results/timedata_taylorgreen_ORDER%d_CFL%d_RE%d_TMAX%d_XLEN%d_BC%s_DOFS%d_PRECON%s_STABS%s.csv"%(order,cfl,RE,TMAX,XLEN,bc_type,dofcount,"gamg","linear")
+        result="results/periodic_lowercfl/timedata_taylorgreen_ORDER%d_CFL%d_RE%d_TMAX%d_XLEN%d_BC%s_DOFS%d_PRECON%s_STABS%s.csv"%(order,cfl,RE,TMAX,XLEN,bc_type,dofcount,"gamg","linear")
         if not os.path.exists(os.path.dirname('results/')):
                 os.makedirs(os.path.dirname('results/'))
         datafile.to_csv(result, index=False,mode="w", header=True)
