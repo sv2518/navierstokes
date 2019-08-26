@@ -29,7 +29,6 @@ def taylorgreen(dx_size,dimension,time_params,RE,XLEN,IP_stabilityparam_type=Non
         NU=1/RE
         nue=Constant(NU) 
         [dt,T]=time_params
-        PETSc.Sys.Print("dt is: ",dt)
 
         #normal boundary conditions
         if periodic:
@@ -65,11 +64,11 @@ def taylorgreen(dx_size,dimension,time_params,RE,XLEN,IP_stabilityparam_type=Non
         bc=[bc_norm,bc_tang,bc_expr]
 
 
-        p_exact=-1/4*(cos(2*k*x)+cos(2*k*y))*exp(-4*k**2*(t+0.5)*dt*nue)
+        p_exact=1/4*(cos(2*k*x)+cos(2*k*y))*exp(-4*k**2*(t+0.5)*dt*nue)
 
     with PETSc.Log.Event("spcs"):
         #run standard pressure correction scheme to solve Navier Stokes equations
-        sol=spcs(W,mesh,nue,bc,0,t,dt,T,outfile,dimension,IP_stabilityparam_type,bc_expr,None,output)
+        sol=spcs(W,mesh,nue,bc,0,t,dt,T,outfile,dimension,IP_stabilityparam_type,bc_expr,p_exact,output)
 
     with PETSc.Log.Event("postprocessing"):
         #return errors

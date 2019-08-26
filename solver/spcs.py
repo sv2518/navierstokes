@@ -24,7 +24,8 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,IP_stabilityparam_type=None,u_
         parameters_pres=parameters_iter[1]
         parameters_corr=parameters_iter[2]
 
-        PETSc.Sys.Print(parameters_iter)
+
+        PETSc.Sys.Print("Solver parameter sets used: \n",parameters_iter)
 
         #split up boundary conditions
         [bc_norm,bc_tang,bc_expr]=bc
@@ -54,8 +55,8 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,IP_stabilityparam_type=None,u_
     with PETSc.Log.Event("build forms"):
         PETSc.Sys.Print("\nBUILD FORMS")#####################################################################
         v_k=Function(U)
-        u_n=Function(U)
-        p_n=Function(P)   
+        u_n=Function(U, name="Velocity")
+        p_n=Function(P, name="Pressure")   
         div_old=Function(P)
         v_knew_hat=Function(U)
         beta=Function(P)

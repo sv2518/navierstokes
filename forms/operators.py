@@ -5,13 +5,17 @@ def diffusion_operator(nue,u,v,n,bc_tang,mesh,stab,order,IP_stabilityparam_type)
 
     #Stability params for Laplacian 
     if IP_stabilityparam_type=="order_unscaled": 
-            order_scaling=1
+        print(IP_stabilityparam_type)
+        order_scaling=1
     elif IP_stabilityparam_type=="linear_order_scaled":  
+        print(IP_stabilityparam_type)
         order_scaling=order**1
     elif IP_stabilityparam_type=="quadratic_order_scaled": 
+        print(IP_stabilityparam_type)
         order_scaling=order**2
     else:
-        order_scaling=order**1
+        print("default")
+        order_scaling=order#(order**2+3*order+2)/4## optimal scaling by shahbazi order_scaling########
 
     alpha=Constant(stab)#interior
     gamma=Constant(stab)#exterior
