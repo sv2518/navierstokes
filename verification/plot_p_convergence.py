@@ -3,21 +3,14 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import os
 
+scaling="_linear_order_scaled"
+name="taylorgreen"+scaling
 #gather all filenames
-<<<<<<< HEAD
+cfl_list=[20,10,8,4,2,1,0]
 #cfl_list=[50,20,15,10]#,10,8,4,2,1]
-
-
-
-
-cfl_list=[20,15,10]
-cfl_data= ["results/taylorgreen_newstabs2_CFL%d_RE1_TMAX1_XLEN3_N6_BCdirichlet.csv" % i
-=======
-cfl_list=[20,15,10,8,4,2]#,]1]#,0]
-#cfl_list=[50,20,15,10]#,10,8,4,2,1]
-cfl_data= ["results/taylorgreen_newstabs3_CFL%d_RE1_TMAX1_XLEN6_N6_BCdirichlet.csv" % i
->>>>>>> b171637ce76c968cb2a38e91a229a4b883f4ef08
+cfl_data= ["results/"+name+"_CFL%d_RE1_TMAX1_XLEN6_N6_BCdirichlet.csv" % i
               for i in cfl_list]
 
 #readin all data
@@ -37,8 +30,14 @@ fig_velo = plt.figure(1)
 fig_pres= plt.figure(2)
 axis_velo = fig_velo.gca()
 axis_pres= fig_pres.gca()
-axis_velo.semilogy(order_list,value*np.power(order_list[::-1],1),'b-',label="$\propto$ ("+str(xlabel)+")")
-axis_pres.semilogy(order_list,value*np.power(order_list[::-1],1),'b-',label="$\propto$ ("+str(xlabel)+")")
+if scaling=="quadratic":
+    axis_velo.semilogy(order_list,value*np.power(order_list[::-1],1)*np.power(order_list[::-1],1),'b-',label="$\propto$ ("+str(xlabel)+"^2)")
+    axis_pres.semilogy(order_list,value*np.power(order_list[::-1],1)*np.power(order_list[::-1],1),'b-',label="$\propto$ ("+str(xlabel)+"^2)")
+elif scaling=="linear":
+    axis_velo.semilogy(order_list,value*np.power(order_list[::-1],1),'b-',label="$\propto$ ("+str(xlabel)+")")
+    axis_pres.semilogy(order_list,value*np.power(order_list[::-1],1),'b-',label="$\propto$ ("+str(xlabel)+")")
+
+    
 axis_velo.set_xlabel(xlabel)
 axis_velo.set_ylabel('$Error$')
 axis_pres.set_xlabel(xlabel)
@@ -54,6 +53,8 @@ for data in order_group:
     axis_velo.legend()
     axis_pres.legend()
 
-fig_velo.savefig("veloconv_newstabs3.pdf", dpi=150)
-fig_pres.savefig("presconv_newstabs3.pdf", dpi=150)
+if not os.path.exists(os.path.dirname('plots/')):
+    os.makedirs(os.path.dirname('plots/'))
+fig_velo.savefig("plots/"+name+"_velo_dirichlet.pdf", dpi=150)
+fig_pres.savefig("plots/"+name+"_pres_dirichlet.pdf", dpi=150)
 
