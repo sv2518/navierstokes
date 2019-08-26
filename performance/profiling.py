@@ -130,11 +130,11 @@ def get_external_timedata():
 
 parameters["pyop2_options"]["lazy_evaluation"] = False
 
+
+##########   SPATIAL CONV SETUP   ####
 cfl=0.1#cfl number
-order_list=[1,2,3,4,5,6,7]#space dimension
+order_list=[1,2,3,4,5,6,7,8]#space dimension
 RE=1#reynolds number
-#N_list=[9]#,6]#,7,8,9]#5#fe number (space discretisation)
-TMAX=0.000000001
 XLEN=2*pi
 bc_type="dirichlet"
 if bc_type=="dirichlet":
@@ -143,8 +143,35 @@ else:
     bc_type_periodic=True
 output=False
 splitstates=False
-dofcount_list=[7000,8000,9000]
-scaling=None#"quadratic_order_scaled"
+dofcount_list=[10000,20000,30000,40000,50000,80000,100000,200000,400000,600000,800000,1000000]
+scaling=None
+tmax="1e-9"
+TMAX=float(tmax)
+case="gamg_TMAX_"+tmax
+general_conv=False
+
+#########    GENERAL CONV SETUP   ####
+#cfl=0.1#cfl number
+#order_list=[1,2,3,4,5,6,7,8]#space dimension
+#RE=1#reynolds number
+#XLEN=2*pi
+#bc_type="dirichlet"
+#if bc_type=="dirichlet":
+#    bc_type_periodic=False
+#else:
+#    bc_type_periodic=True
+#output=False
+#splitstates=False
+#dofcount_list=[10000,20000,30000,40000,50000,60000,80000,100000,200000,400000]
+#scaling=None
+#tmax="pi"
+#TMAX=float(tmax)
+#case="gamg_TMAX_"+tmax
+#general_conv=True
+#case+="_generalconv_"+general_conv
+
+if not os.path.exists(os.path.dirname("results/"+case+"/")):
+    os.makedirs(os.path.dirname("results/"+case+"/"))
 
 dofpercell=0
 for order in order_list:
@@ -153,17 +180,19 @@ for order in order_list:
     print("order is:", order)
     for dofcount in dofcount_list:
         #dx defined over element number & space dimensions
-        print(dofcount)
-        print(dofpercell)
+        print("\nNumber of DOFS: ",dofcount)
         dx=math.sqrt(XLEN**2*(order**2+0+2*order+dofpercell)/dofcount)#/2**N
-        PETSc.Sys.Print("!!!!dx is:",dx) 
+        PETSc.Sys.Print("dx is:",dx) 
 
-        #cfl number restrics size of dt for stability
+        #cfl number restrics max size of dt for stability
         #scaled by order**2 (some people say it should be to the power of 1, some 1.5)
         #chose two bc better too small than too large
         #divided by two bc 2d
-        dt=TMAX/1#cfl/order**2*dx/2
-        PETSc.Sys.Print(dt)
+        if general_conv:
+            dt=cfl/order**2*dx/2
+        else:
+            dt=TMAX
+        PETSc.Sys.Print("dt is: ",dt)
 
         #number of timesteps
         T=TMAX/dt
@@ -234,17 +263,13 @@ for order in order_list:
 
         tas_data.update(accuracy_data)
 
-########update rows
-#        tas_data_rows.append(tas_data)
-
-
         #write out data to .csv
         #datafile = pd.DataFrame(tas_data_rows) 
         datafile = pd.DataFrame(tas_data,index=[0])   
-        result="results/periodic_lowercfl/timedata_taylorgreen_ORDER%d_CFL%d_RE%d_TMAX%d_XLEN%d_BC%s_DOFS%d_PRECON%s_STABS%s.csv"%(order,cfl,RE,TMAX,XLEN,bc_type,dofcount,"gamg","linear")
+        result="results/"+case+"/timedata_taylorgreen_ORDER%d_CFL%d_RE%d_TMAX%d_XLEN%d_BC%s_DOFS%d_PRECON%s_STABS%s.csv"%(order,cfl,RE,TMAX,XLEN,bc_type,dofcount,"gamg","linear")
         if not os.path.exists(os.path.dirname('results/')):
                 os.makedirs(os.path.dirname('results/'))
         datafile.to_csv(result, index=False,mode="w", header=True)
 
-    dofpercell+=(order)*4###TAKE CARE, this is based on the fact that my orderlist goes from 1 to 4
+    dofpercell+=(order)*4###TAKE CARE, this is based on the fact that my orderlist goes from 1 continously up
        
