@@ -6,7 +6,6 @@ sys.path.insert(0,parentdir)
 
 from tests.taylorgreen import *
 import matplotlib.pyplot as plt
-from helpers.plot_convergence_velo_pres import plot_convergence_velo_pres
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -147,7 +146,7 @@ dofcount_list=[10000,20000,30000,40000,50000,80000,100000,200000,400000,600000,8
 scaling=None
 tmax="1e-9"
 TMAX=float(tmax)
-case="rerunonpex_gamg_TMAX_"+tmax
+case="rerunonpex_ml_TMAX_"+tmax
 general_conv=False
 
 #########    GENERAL CONV SETUP   ####
