@@ -167,7 +167,7 @@ tmax="pi"
 TMAX=np.pi
 case="gamg_TMAX_"+tmax
 general_conv=True
-case+="rerunonpex_withcfl_generalconv_"+general_conv+"_"+bc_type
+case+="rerunonpex_withcfl_generalconv_"+bc_type
 
 if not os.path.exists(os.path.dirname("results/"+case+"/")):
     os.makedirs(os.path.dirname("results/"+case+"/"))
