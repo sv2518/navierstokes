@@ -28,7 +28,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,IP_stabilityparam_type=None,u_
         PETSc.Sys.Print("Solver parameter sets used: \n",parameters_iter)
 
         #split up boundary conditions
-        [bc_norm,bc_tang,bc_expr]=bc
+        [bc_norm,bc_tang,bc_expr_list]=bc
 
     with PETSc.Log.Event("initial values"):
         PETSc.Sys.Print("\nCALCULATE INITIAL VALUES")########################################################
@@ -110,10 +110,10 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,IP_stabilityparam_type=None,u_
             PETSc.Sys.Print("n is: ",n)
 
             if bc_tang:
-                bc_tang[0]=[bc_tang[0][0].project(bc_expr),4]
-                bc_tang[1]=[bc_tang[1][0].project(bc_expr),1]
-                bc_tang[2]=[bc_tang[2][0].project(bc_expr),2]
-                bc_tang[3]=[bc_tang[3][0].project(bc_expr),3]
+                bc_tang[0]=[bc_tang[0][0].project(bc_expr_list[0]),1]
+                bc_tang[1]=[bc_tang[1][0].project(bc_expr_list[1]),2]
+                bc_tang[2]=[bc_tang[2][0].project(bc_expr_list[2]),3]
+                bc_tang[3]=[bc_tang[3][0].project(bc_expr_list[3]),4]
 
         
             #update start value of picard iteration       

@@ -1,44 +1,45 @@
 from tests.taylorgreen import *
+from tests.cavity import *
 import matplotlib.pyplot as plt
-from helpers import plot_convergence_velo_pres
+import numpy as np
+import math
 
 #####################MAIN##########################
-error_velo=[]
-error_pres=[]
-list_N=[]
 
-#fe number and order
-refin=range(5,10)
-D=1
+#solver params
+output=True
+scaling=None
 
-for n in refin:#increasing element number
+#flow params
+cfl=1#cfl number
+RE=100#reynolds number
+U_inf=1
+
+#space params
+dim=1
+XLEN=1
+dofcount=20000
+dx=math.sqrt(XLEN**2*(dim**2+0+2*dim+0)/dofcount)
+print(dx)
+bc_type="dirichlet"
+if bc_type=="dirichlet":
+    bc_type_periodic=False
+else:
+    bc_type_periodic=True
+
+#time params
+TMAX=1200
+dt=cfl/dim**2*dx/2
+T=TMAX/dt
+time_params=[dt,T]
+
+######run taylorgreen OR cavity flow
+
+#sol,[linf_err_u,l2_err_u,hdiv_err_u],[linf_err_p,l2_err_p,h1_err_p],dx_size,mesh.comm =  taylorgreen(dx,dim,time_params,RE,XLEN,scaling,bc_type_periodic,output)
     
-    #solve
-    w,err_u,err_p,N = taylorgreen(n, D)
-    u,p=w.split()
-    error_velo.append(err_u)
-    error_pres.append(err_p)
-    list_N.append(N)
-
-
-print(err_u)
-print(err_p)
-
-plot_convergence_velo_pres(error_velo,error_pres,list_N)
+sol,mesh.comm =  cavity(U_inf,dx,dim,time_params,RE,XLEN,scaling,bc_type_periodic,output)
+    
+#solutions get saved in output folder!
 
     
 
-
-
-#plot actual errors in L2
-#plt.plot(refin,np.array([3.9,1.2,0.33,0.093,0.026]),label="paper")
-#plt.plot(refin,np.array(error_pres)/100,label="mine/100")
-#plt.legend()
-#plt.title("L2 error pressure")
-#plt.show()
-
-#plt.plot(refin,np.array([0.23,0.062,0.016,0.0042,0.0011]),label="paper")
-#plt.plot(refin,error_velo,label="mine")
-#plt.legend()
-#plt.title("L2 error velocity")
-#plt.show()

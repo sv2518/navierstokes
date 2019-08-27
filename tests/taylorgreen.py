@@ -52,13 +52,18 @@ def taylorgreen(dx_size,dimension,time_params,RE,XLEN,IP_stabilityparam_type=Non
         uy=-sin(k*y)*cos(k*x)*exp(-2*k**2*t*dt)
         bc_expr=as_vector((ux,uy))
 
+        bc_expr_list=[]
+        bc_expr_list.append(bc_expr)
+        bc_expr_list.append(bc_expr)
+        bc_expr_list.append(bc_expr)
+        bc_expr_list.append(bc_expr)
+
         bc_tang=[]
         if (not periodic):
-            bc_tang.append([Function(U).project(bc_expr),4])
-            bc_tang.append([Function(U).project(bc_expr),1])
-            bc_tang.append([Function(U).project(bc_expr),2])
-            bc_tang.append([Function(U).project(bc_expr),3])
-
+            bc_tang.append([Function(U).project(bc_expr_list[0]),1])
+            bc_tang.append([Function(U).project(bc_expr_list[1]),2])
+            bc_tang.append([Function(U).project(bc_expr_list[2]),3])
+            bc_tang.append([Function(U).project(bc_expr_list[3]),4])
 
         #gather bcs
         bc=[bc_norm,bc_tang,bc_expr]
