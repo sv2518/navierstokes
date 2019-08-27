@@ -131,25 +131,6 @@ parameters["pyop2_options"]["lazy_evaluation"] = False
 
 
 ##########   SPATIAL CONV SETUP   ####
-cfl=0.1#cfl number
-order_list=[1,2,3,4,5,6,7,8]#space dimension
-RE=1#reynolds number
-XLEN=2*pi
-bc_type="dirichlet"
-if bc_type=="dirichlet":
-    bc_type_periodic=False
-else:
-    bc_type_periodic=True
-output=False
-splitstates=False
-dofcount_list=[10000,20000,30000,40000,50000,80000,100000,200000,400000,600000,800000,1000000]
-scaling=None
-tmax="1e-9"
-TMAX=float(tmax)
-case="rerunonpex_ml_TMAX_"+tmax
-general_conv=False
-
-#########    GENERAL CONV SETUP   ####
 #cfl=0.1#cfl number
 #order_list=[1,2,3,4,5,6,7,8]#space dimension
 #RE=1#reynolds number
@@ -161,13 +142,32 @@ general_conv=False
 #    bc_type_periodic=True
 #output=False
 #splitstates=False
-#dofcount_list=[10000,20000,30000,40000,50000,60000,80000,100000,200000,400000]
+#dofcount_list=[10000,20000,30000,40000,50000,80000,100000,200000,400000,600000,800000,1000000]
 #scaling=None
-#tmax="pi"
+#tmax="1e-9"
 #TMAX=float(tmax)
-#case="gamg_TMAX_"+tmax
-#general_conv=True
-#case+="_generalconv_"+general_conv
+#case="rerunonpex_ml_TMAX_"+tmax
+#general_conv=False
+
+#########    GENERAL CONV SETUP   ####
+cfl=0.1#cfl number
+order_list=[1,2,3,4,5]#space dimension
+RE=1#reynolds number
+XLEN=2*pi
+bc_type="dirichlet"
+if bc_type=="dirichlet":
+    bc_type_periodic=False
+else:
+    bc_type_periodic=True
+output=True
+splitstates=False
+dofcount_list=[10000,20000,40000,60000,80000,100000,200000,400000]
+scaling=None
+tmax="pi"
+TMAX=float(tmax)
+case="gamg_TMAX_"+tmax
+general_conv=True
+case+="rerunonpex_withcfl_generalconv_"+general_conv+"_"+bc_type
 
 if not os.path.exists(os.path.dirname("results/"+case+"/")):
     os.makedirs(os.path.dirname("results/"+case+"/"))
