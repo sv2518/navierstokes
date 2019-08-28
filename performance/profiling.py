@@ -150,7 +150,7 @@ parameters["pyop2_options"]["lazy_evaluation"] = False
 #general_conv=False
 
 #########    GENERAL CONV SETUP   ####
-cfl=0.1#cfl number
+cfl=10#cfl number
 order_list=[1,2,3,4,5]#space dimension
 RE=1#reynolds number
 XLEN=2*pi
@@ -161,7 +161,7 @@ else:
     bc_type_periodic=True
 output=True
 splitstates=False
-dofcount_list=[10000,20000,40000,60000,80000,100000,200000,400000]
+dofcount_list=[20000]
 scaling=None
 tmax="pi"
 TMAX=np.pi
@@ -180,7 +180,7 @@ for order in order_list:
     for dofcount in dofcount_list:
         #dx defined over element number & space dimensions
         print("\nNumber of DOFS: ",dofcount)
-        dx=math.sqrt(XLEN**2*(order**2+0+2*order+dofpercell)/dofcount)#/2**N
+        dx=math.sqrt(XLEN**2*(order**2+0+2*order+dofpercell)/dofcount)
         PETSc.Sys.Print("dx is:",dx) 
 
         #cfl number restrics max size of dt for stability
