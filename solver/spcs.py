@@ -109,6 +109,7 @@ def spcs(W,mesh,nue,bc,U_inf,t,dt,T,outfile,order,IP_stabilityparam_type=None,u_
             PETSc.Sys.Print("t is: ",n*dt)
             PETSc.Sys.Print("n is: ",n)
 
+            print(bc_expr_list[0])
             if bc_tang:
                 bc_tang[0]=[bc_tang[0][0].project(bc_expr_list[0]),1]
                 bc_tang[1]=[bc_tang[1][0].project(bc_expr_list[1]),2]
