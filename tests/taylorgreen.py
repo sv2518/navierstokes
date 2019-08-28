@@ -66,7 +66,7 @@ def taylorgreen(dx_size,dimension,time_params,RE,XLEN,IP_stabilityparam_type=Non
             bc_tang.append([Function(U).project(bc_expr_list[3]),4])
 
         #gather bcs
-        bc=[bc_norm,bc_tang,bc_expr]
+        bc=[bc_norm,bc_tang,bc_expr_list]
 
 
         p_exact=1/4*(cos(2*k*x)+cos(2*k*y))*exp(-4*k**2*(t+0.5)*dt*nue)
