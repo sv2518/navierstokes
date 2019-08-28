@@ -161,7 +161,7 @@ else:
     bc_type_periodic=True
 output=True
 splitstates=False
-dofcount_list=[20000,40000,60000,80000]
+dofcount_list=[100000]
 scaling=None
 tmax="pi"
 TMAX=np.pi
