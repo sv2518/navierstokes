@@ -150,7 +150,7 @@ parameters["pyop2_options"]["lazy_evaluation"] = False
 #general_conv=False
 
 #########    GENERAL CONV SETUP   ####
-cfl=10#cfl number
+cfl=1#cfl number
 order_list=[1,2,3,4,5]#space dimension
 RE=1#reynolds number
 XLEN=2*pi
@@ -161,13 +161,13 @@ else:
     bc_type_periodic=True
 output=True
 splitstates=False
-dofcount_list=[200000]
+dofcount_list=[20000,40000,60000,80000,100000,200000]
 scaling=None
 tmax="pi"
 TMAX=np.pi
 case="gamg_TMAX_"+tmax
 general_conv=True
-case+="rerunonpex_withcfl_generalconv_"+bc_type
+case+="rerunonpex_withlowercfl_generalconv_"+bc_type
 
 if not os.path.exists(os.path.dirname("results/"+case+"/")):
     os.makedirs(os.path.dirname("results/"+case+"/"))
