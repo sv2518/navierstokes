@@ -4,10 +4,12 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import os
+import string
 import seaborn as sns
 sns.set_palette("deep")
 current_palette = sns.color_palette()
-tips =['o','v','s','P','*',"D",2]
+tips =['o','v','s','P','*',"D","X",2]
+plt.rcParams.update({'font.size': 14})
 #order is not order it is the nth specification of dof numbers
 def solveassembly_internal(columns,axis10,axis11,jp1,dof,order,case):
 
@@ -33,7 +35,7 @@ def solveassembly_internal(columns,axis10,axis11,jp1,dof,order,case):
                  linewidth=1,color=current_palette[9])
     b=timeassemblypred_int/timepred_int
     a13=axis9.bar(1, timesolvepred_int/timepred_int, width,
-                 linewidth=1,color=current_palette[5],bottom=b)
+                 linewidth=1,color=current_palette[3],bottom=b)
 
     a14=axis9.bar(2, timeassemblyupd_int/timeupd_int, width,
                  linewidth=1,color=current_palette[9])
@@ -48,8 +50,9 @@ def solveassembly_internal(columns,axis10,axis11,jp1,dof,order,case):
                  linewidth=1,color=current_palette[3],bottom=b)
     
     axis9.legend((a12[0],a13[0]),
-    ("assembly (snes jacobian eval/hybrid operator assembly)", "solve (PC apply)"))
+    ("assembly", "solve"))#(snes jacobian eval/hybrid operator assembly) to (PC apply)
     axis9.set_xlabel('Parts')
+    axis9.set_xticklabels([' ','Pred',' ','Upd',' ','Corr'])
     axis9.set_ylabel('Normalised Time')
     fig9.savefig('solveassembly_internal/'+case+'/tasparts_relative_internal_order%d_dof%d.pdf'%(order,dof), dpi=150)
 
@@ -75,8 +78,9 @@ def solveassembly_internal(columns,axis10,axis11,jp1,dof,order,case):
                  linewidth=1,color=current_palette[3],bottom=b)
     
     axis99.legend((a12[0],a13[0]),
-    ("assembly (snes jacobian eval/hybrid operator assembly)", "solve (PC apply)"))
+    ("assembly", "solve"))
     axis99.set_xlabel('Parts')
+    axis99.set_xticklabels([' ','Pred',' ','Upd',' ','Corr'])
     axis99.set_ylabel('Time [s]')
     fig99.savefig('solveassembly_internal/'+case+'/tasparts_absolute_internal_order%d_dof%d.pdf'%(order,dof), dpi=150)
 
@@ -118,9 +122,8 @@ def tas_spectrum(error_list,dof_group_list,timeoverall_list,case,sol):
     axis4.set_xlabel('DoS')
 
     for i,order in enumerate(order_list):
-        axis4.plot(dos[i],doa[i],"x-",label="DG%d - GAMG"%order, marker=tips[i])
+        axis4.plot(dos[i],doa[i],"x-",label="DG%d"%order, marker=tips[i])
 
-    axis4.legend()
     axis4.grid()
     fig4.savefig('tas/'+case+'/tasMesh_'+sol+'.pdf', dpi=150)
     ####################################################################
@@ -131,17 +134,17 @@ def tas_spectrum(error_list,dof_group_list,timeoverall_list,case,sol):
     fig5= plt.figure(5)
     axis5 = fig5.gca()
     axis5.set_ylabel('DoF/s')
-    axis5.set_xlabel('Time(s)')
+    axis5.set_xlabel('Time [s]')
 
     #ggather static scaling information
     #unknowns per second
     dofpersecond=[]
     for i,order in enumerate(order_list):
         dofpersecond.append([x*TMAX/z/y for x, y,z in zip(dof_group_list[i],timeoverall_list[i],dt_list[i])])
-        axis5.loglog(timeoverall_list[i],dofpersecond[i],"x-",label="DG%d - GAMG"%order, marker=tips[i])
+        axis5.loglog(timeoverall_list[i],dofpersecond[i],"x-",label="DG%d"%order, marker=tips[i])
 
-    axis5.legend()
     axis5.grid()
+    axis5.legend()
     fig5.savefig('tas/'+case+'/tasStatic_'+sol+'.pdf', dpi=150)
 
     ####################################################################
@@ -151,16 +154,16 @@ def tas_spectrum(error_list,dof_group_list,timeoverall_list,case,sol):
     fig6= plt.figure(6)
     axis6 = fig6.gca()
     axis6.set_ylabel('DoE')
-    axis6.set_xlabel('Time(s)')
+    axis6.set_xlabel('Time [s]')
 
 
     for i,order in enumerate(order_list):
         efficacy=[x*y for x, y in zip(error_list[i],timeoverall_list[i])]
         doe=-np.log10(efficacy)#digits of efficacy
-        axis6.plot(np.log10(timeoverall_list[i]),doe,"x-",label="DG%d - GAMG"%order, marker=tips[i])
+        axis6.semilogx((timeoverall_list[i]),doe,"x-",label="DG%d"%order, marker=tips[i])
 
-    axis6.legend()
     axis6.grid()
+    axis6.legend()
     fig6.savefig('tas/'+case+'/tasEfficacy_'+sol+'.pdf', dpi=150)
 
     ####################################################################
@@ -170,13 +173,13 @@ def tas_spectrum(error_list,dof_group_list,timeoverall_list,case,sol):
     fig8= plt.figure(8)
     axis8 = fig8.gca()
     axis8.set_ylabel('True DoF/s')
-    axis8.set_xlabel('Time(s)')
+    axis8.set_xlabel('Time [s]')
 
     for i,order in enumerate(order_list):
         scaling=[x/y for x, y in zip(doa[i],dos[i])]
         truedofpersecond=[x*y for x, y in zip(scaling,dofpersecond[i])]
-        axis8.loglog(np.log10(timeoverall_list[i]),truedofpersecond,"x-",label="DG - GAMG", marker=tips[i])
-    axis8.legend()
+        axis8.loglog(timeoverall_list[i],truedofpersecond,"x-",label="DG", marker=tips[i])
+
     axis8.grid()
     fig8.savefig('tas/'+case+'/tasTrueStatic_'+sol+'.pdf', dpi=150)
 
@@ -202,21 +205,105 @@ def convergence_rates(error_list,dof_list,order_list,type):
         os.makedirs(os.path.dirname("convergence/"+case+"/"))
     datafile.to_csv(result, index=False,mode="w", header=True)
 
+    return datafile
+
+def convergence_rates_tolatex(velo_rows_conv_rate,pres_rows_conv_rate,veloerror_list,preserror_list):
+    table = r"""
+    \begin{table}
+    \begin{center}
+    \resizebox{0.57\textwidth}{!}{%
+    \begin{tabular}{| l | c | c | c | c | c |}
+    \hline
+    \multicolumn{6}{|c|}{SPCS-IP method ($t_{max} =1\times e-9$)} \\
+    \hline
+    \multirow{2}{*}{$k$} &
+    \multirow{2}{*}{DoF}&
+    \multicolumn{2}{|c|}{
+    $\norm{\boldsymbol{u}-\boldsymbol{u}_h}_{\boldsymbol{L}^2(\Omega)} \leq \mathcal{O}(d^{k+1})$} &
+    \multicolumn{2}{|c|}{$\norm{p-p_h}_{L^2(\Omega)}\leq \mathcal{O}(d^{k+2})$} &
+    \cline{3-6}
+    & & $L^2$-error & rate & $L^2$-error & rate \\
+    """
+
+    lformat = r"""& {dof: d} & {veloerror:.3e} & {velorate} & {preserr:.3e} & {presrate}\\
+    """
+
+    dofs_list=velo_rows_conv_rate.columns.tolist()[1:]
+
+    for j,order in enumerate(velo_rows_conv_rate[0]):
+        table += r"""
+        \hline
+        \hspace{0.1cm}%s\hspace{0.1cm}    
+        """ % order
+
+
+        s="\\\\"
+        for i,dofs in enumerate(dofs_list):
+            table += r"""
+            &%s
+            """ % str(dofs)
+
+            
+            try:
+
+                table += r"""
+                &%.3e
+                """ % float(veloerror_list[j][i])
+
+                table += r"""
+                &%.2f
+                """ % float(velo_rows_conv_rate.iloc[j,i+1])
+
+                table += r"""
+                &%.3e
+                """ % float(preserror_list[j][i])
+
+
+                table += r"""
+                &%.2f\\
+                """ % float(pres_rows_conv_rate.iloc[j,i+1])
+
+
+            except ValueError:
+
+                table += r"""
+                &%s
+                """ % (velo_rows_conv_rate.iloc[j,i+1])
+
+                table += r"""
+                &%.3e
+                """ % float(preserror_list[j][i])
+
+                table += r"""
+                &%s\\
+                """ % (pres_rows_conv_rate.iloc[j,i+1])
+            
+
+        table += r"""\hline"""
+
+    table += r"""\end{tabular}}
+    \end{center}
+    \caption{Error and convergence rates for velocity and pressure}
+    \label{tab:conv}
+    \end{table}"""
+    print(table)
+
 
 ####################################################################
 #############GENERAL PERFORMANCE DISTRIBUTION PLOTS################
 ####################################################################
 order_list=[1,2,3,4,5]
-dofs_list=[10000,20000,30000,40000,50000,80000,100000,200000,400000,600000,800000]
+#dofs_list=[20000,40000,60000,80000]
+dofs_list=[20000,50000,80000,200000,400000,600000]
 tmax='1e-9'
 TMAX=float(tmax)
-case='gamg_TMAX_'+tmax
-
+#case='gamg_TMAX_pirerunonpex_withcfl_generalconv_dirichlet'
+case='rerunonpex_ml_TMAX_'+tmax
 
 #gather all filenames
 order_data=[]
 for order in order_list:
-    #dof_data= ["results/timedata_taylorgreen_ORDER%d_CFL10_RE1_TMAX1_XLEN6_BCperiodic_DOFS%d.csv" % (order,i)
+    #dof_data= ['results/'+case+'/timedata_taylorgreen_ORDER%d_CFL10_RE1_TMAX3_XLEN6_BCdirichlet_DOFS%d_PRECONgamg_STABSlinear.csv' % (order,i)
     #          for i in dofs_list]
     dof_data= ['results/'+case+'/timedata_taylorgreen_ORDER%d_CFL0_RE1_TMAX0_XLEN6_BCdirichlet_DOFS%d_PRECONgamg_STABSlinear.csv' % (order,i)
               for i in dofs_list]
@@ -247,9 +334,10 @@ for i,order in enumerate(order_list):
     preserror_list.append([e[1] for e in dof_group_data["L2Pres"].items()])
     dt_list.append([e[1] for e in dof_group_data["dt"].items()])
 
-
-convergence_rates(veloerror_list,dof_group_list,order_list,"velo")
-convergence_rates(preserror_list,dof_group_list,order_list,"pres")
+########## CONVGERNECE PLOTS#######
+velo_conv=convergence_rates(veloerror_list,dof_group_list,order_list,"velo")
+pres_conv=convergence_rates(preserror_list,dof_group_list,order_list,"pres")
+convergence_rates_tolatex(velo_conv,pres_conv,veloerror_list,preserror_list)
 
 
 if not os.path.exists(os.path.dirname('distribution_external/'+case+'/')):
@@ -312,17 +400,17 @@ for i,order in enumerate(order_group_data):
         #gather times for plot of assembly split
         timepred=columns["predictor"]
         timeupd=columns["update"]
-        timecorr=0
+        timecorr=columns["corrector"]
 
         timeassembly=timepred+timeupd+timecorr
         a6 = axis2.bar(j+1, timepred/timeassembly, width,
-                    linewidth=1,color=current_palette[9])
+                    linewidth=1,color=current_palette[7])
         b=timepred/timeassembly
         a7 = axis2.bar(j+1, timeupd/timeassembly, width,bottom=b,
-                    linewidth=1,color=current_palette[3])
+                    linewidth=1,color=current_palette[1])
         b+=timeupd/timeassembly
         a8 = axis2.bar(j+1, timecorr/timeassembly, width,bottom=b,
-                    linewidth=1,color="green")
+                    linewidth=1,color=current_palette[0])
         b+=timecorr/timeassembly
 
 
@@ -333,15 +421,14 @@ for i,order in enumerate(order_group_data):
 
     ####internal assembly/solve
     axis10.legend((a18[0],a19[0]),
-    ("assembly","solve"))
+    ("assembly","solve"),loc="lower left")
     axis10.set_xlabel("DOFS")
-    print(labels)
     axis10.set_xticks(np.arange(0, len(labels), 1.0))
     axis10.set_xticklabels(labels)
     fig10.savefig('solveassembly_internal/'+case+'/tasall_absolute_internal_order%d.pdf'%order_list[i], dpi=150)
 
     axis11.legend((a20[0],a21[0]),
-    ("assembly","solve"))
+    ("assembly","solve"),loc="lower left")
     axis11.set_xlabel("DOFS")
     axis11.set_xticklabels(labels)
     fig11.savefig('solveassembly_internal/'+case+'/tasall_relative_internal_order%d.pdf'%order_list[i], dpi=150)
@@ -350,11 +437,14 @@ for i,order in enumerate(order_group_data):
     ####external distributions
     #set legends and savefigs
     axis1.legend((a1[0],a2[0],a3[0],a4[0],a5[0]),
-    ("config","forms","problems and solver","time stepping","postprocessing"))
+    ("config","forms","problems and solver","time stepping","postprocessing"),loc="lower left")
     fig1.savefig('distribution_external/'+case+'/general_tasAll_external_order%d.pdf'%order_list[i], dpi=150)
 
     axis2.legend((a6[0],a7[0],a8[0]),
     ("predictor assembly","update assembly","corrector assembly"))
+    axis2.set_xlabel("DOFS")
+    axis2.set_xticks(np.arange(0, len(labels), 1.0))
+    axis2.set_xticklabels(labels)
     fig2.savefig('distribution_external/'+case+'/general_tasAssembly_external_order%d.pdf'%order_list[i], dpi=150)
     ####
 
@@ -370,3 +460,6 @@ tas_spectrum(veloerror_list,dof_group_list,timeoverall_list,case,"velo")
 
 #plot tas spectrum for pressure
 tas_spectrum(preserror_list,dof_group_list,timeoverall_list,case,"pres")
+
+
+

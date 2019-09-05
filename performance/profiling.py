@@ -13,6 +13,7 @@ from pyop2.profiling import timed_stage
 from firedrake.petsc import PETSc
 from mpi4py import MPI
 
+Citations.print_at_exit()
 
 #get internal solver specific times of predictor,update,corrector
 #state can be cold or warm
