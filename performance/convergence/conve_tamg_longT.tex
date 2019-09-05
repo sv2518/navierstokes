@@ -1,0 +1,235 @@
+
+    \begin{table}
+    \begin{center}
+    \resizebox{0.57\textwidth}{!}{%
+    \begin{tabular}{| l | c | c | c | c | c |}
+    \hline
+    \multicolumn{6}{|c|}{SPCS-IP method ($\t_{max} =1\times e-9$)} \\
+    \hline
+    \multirow{2}{*}{$k$} &
+    \multirow{2}{*}{DoF}&
+    \multicolumn{2}{|c|}{
+    $\norm{\boldsymbol{u}-\boldsymbol{u}_h}_{\boldsymbol{L}^2(\Omega)} \leq \mathcal{O}(d^{k+1})$} &
+    \multicolumn{2}{|c|}{$\norm{p-p_h}_{L^2(\Omega)}\leq \mathcal{O}(d^{k+2})$} &
+    \cline{3-6}
+    & & $L^2$-error & rate & $L^2$-error & rate \\
+    
+        \hline
+        \hspace{0.1cm}DG1\hspace{0.1cm}    
+        
+            &19360
+            
+                &7.715e-02
+                
+                &1.56
+                
+                &2.069e-01
+                
+                &-0.12\\
+                
+            &39905
+            
+                &4.473e-02
+                
+                &1.80
+                
+                &2.158e-01
+                
+                &1.91\\
+                
+            &59080
+            
+                &3.101e-02
+                
+                &1.53
+                
+                &1.463e-01
+                
+                &1.99\\
+                
+            &77120
+            
+                &2.484e-02
+                
+                &-
+                
+                &1.097e-01
+                
+                &-\\
+                \hline
+        \hline
+        \hspace{0.1cm}DG2\hspace{0.1cm}    
+        
+            &19360
+            
+                &3.996e-02
+                
+                &1.61
+                
+                &3.685e-02
+                
+                &0.83\\
+                
+            &39905
+            
+                &2.262e-02
+                
+                &1.44
+                
+                &2.747e-02
+                
+                &0.85\\
+                
+            &59080
+            
+                &1.685e-02
+                
+                &1.53
+                
+                &2.306e-02
+                
+                &0.85\\
+                
+            &77120
+            
+                &1.349e-02
+                
+                &-
+                
+                &2.038e-02
+                
+                &-\\
+                \hline
+        \hline
+        \hspace{0.1cm}DG3\hspace{0.1cm}    
+        
+            &19360
+            
+                &2.031e-02
+                
+                &1.60
+                
+                &4.648e-02
+                
+                &0.79\\
+                
+            &39905
+            
+                &1.179e-02
+                
+                &1.47
+                
+                &3.557e-02
+                
+                &0.84\\
+                
+            &59080
+            
+                &8.630e-03
+                
+                &1.65
+                
+                &2.975e-02
+                
+                &0.85\\
+                
+            &77120
+            
+                &6.866e-03
+                
+                &-
+                
+                &2.643e-02
+                
+                &-\\
+                \hline
+        \hline
+        \hspace{0.1cm}DG4\hspace{0.1cm}    
+        
+            &19360
+            
+                &1.213e-02
+                
+                &1.61
+                
+                &6.280e-02
+                
+                &0.80\\
+                
+            &39905
+            
+                &7.076e-03
+                
+                &1.38
+                
+                &4.796e-02
+                
+                &0.86\\
+                
+            &59080
+            
+                &5.200e-03
+                
+                &1.80
+                
+                &3.960e-02
+                
+                &0.87\\
+                
+            &77120
+            
+                &4.094e-03
+                
+                &-
+                
+                &3.526e-02
+                
+                &-\\
+                \hline
+        \hline
+        \hspace{0.1cm}DG5\hspace{0.1cm}    
+        
+            &19360
+            
+                &7.836e-03
+                
+                &1.50
+                
+                &7.968e-02
+                
+                &0.83\\
+                
+            &39905
+            
+                &4.562e-03
+                
+                &1.53
+                
+                &5.901e-02
+                
+                &0.86\\
+                
+            &59080
+            
+                &3.380e-03
+                
+                &1.82
+                
+                &4.980e-02
+                
+                &0.88\\
+                
+            &77120
+            
+                &2.652e-03
+                
+                &-
+                
+                &4.428e-02
+                
+                &-\\
+                \hline\end{tabular}}
+    \end{center}
+    \caption{Error and convergence rates for velocity and pressure}
+    \label{tab:conv}
+    \end{table}
