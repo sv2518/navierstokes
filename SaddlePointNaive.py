@@ -15,9 +15,9 @@ def solve_problem(mesh_size, parameters_pres,parameters_velo, aP=None, block_mat
     #mesh.coordinates.dat.data-=mesh.coordinates.dat.data[15:25,0]
     #mesh.coordinates.dat.data[1:2,1]-=mesh.coordinates.dat.data[1:2,0]
 
-    dt_max=0.0000001
-    dt=0.0000001 #for lower Reynoldnumber lower dt??
-    T=0.0000002
+    dt_max=0.1
+    dt=0.1 #for lower Reynoldnumber lower dt??
+    T=0.2
     theta=1
     
     #max dx is 0.05 min dx is 0.001
@@ -34,7 +34,7 @@ def solve_problem(mesh_size, parameters_pres,parameters_velo, aP=None, block_mat
 	
     #normal and essentially reynolds number
     n=FacetNormal(W.mesh())
-    nue=Constant(0.001)
+    nue=Constant(0.01)
     appctx = {"Re": 100, "velocity_space": 0}
 
     #specify inflow/initial solution
@@ -88,11 +88,11 @@ def solve_problem(mesh_size, parameters_pres,parameters_velo, aP=None, block_mat
     solver.solve()
     u_init_sol,p_init_sol=w_init.split()
     
-    plot(u_init_sol)
-    plt.show()
+    # plt.plot(u_init_sol)
+    # plt.show()
 
-    plot(p_init_sol)
-    plt.show()
+    # plt.plot(p_init_sol)
+    # plt.show()
 
 
     #intial values
@@ -183,8 +183,8 @@ def solve_problem(mesh_size, parameters_pres,parameters_velo, aP=None, block_mat
             solver.solve()
             usolhat,psolhat=w_pred.split()
 
-            plot(usolhat)
-            plt.show()
+            # plot(usolhat)
+            # plt.show()
 
 
             #convergence criterion
@@ -212,8 +212,8 @@ def solve_problem(mesh_size, parameters_pres,parameters_velo, aP=None, block_mat
         print(assemble(betasol).dat.data)
         p_knew=Function(P).project(p_n+betasol/dt)#or pk??????????
 
-        plot(p_knew)
-        plt.show()
+        # plt.plot(p_knew)
+        # plt.show()
 
         #v_knew=Function(U).project(usolhat+grad(betasol))
 
@@ -228,15 +228,15 @@ def solve_problem(mesh_size, parameters_pres,parameters_velo, aP=None, block_mat
         solver.solve()
         usol,psol=w_corr.split()
 
-        plot(usol)
-        plt.title("Velocity")
-        plt.xlabel("x")
-        plt.ylabel("y")
+        # plt.plot(usol)
+        # plt.title("Velocity")
+        # plt.xlabel("x")
+        # plt.ylabel("y")
        # plt.show()
-        plot(p_knew)
-        plt.title("Pressure")
-        plt.xlabel("x")
-        plt.ylabel("y")
+        # plt.plot(p_knew)
+        # plt.title("Pressure")
+        # plt.xlabel("x")
+        # plt.ylabel("y")
         #plt.show()
 
         u_n.assign(usol)
@@ -292,16 +292,16 @@ for n in refin:#increasing element number
         warning("Matplotlib not imported")
 
     #plot solutions
-    try:
-        plot(u)
-        plt.title("Velocity")
-        plt.xlabel("x")
-        plt.ylabel("y")
-        plt.show()
-        plot(p)
-        plt.title("Pressure")
-        plt.xlabel("x")
-        plt.ylabel("y")
-        plt.show()
-    except:
-        warning("Cannot show figure")
+    # try:
+        # plt.plot(u)
+        # plt.title("Velocity")
+        # plt.xlabel("x")
+        # plt.ylabel("y")
+        # plt.show()
+        # plt.plot(p)
+        # plt.title("Pressure")
+        # plt.xlabel("x")
+        # plt.ylabel("y")
+        # plt.show()
+    # except:
+    #     warning("Cannot show figure")
